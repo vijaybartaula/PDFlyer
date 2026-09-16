@@ -1,104 +1,137 @@
 import Link from "next/link"
-import { Github, Twitter, Linkedin } from "lucide-react" // Fixed: Changed GitHub to Github (correct casing)
+import { PRODUCTION_APP_URL } from "@/lib/constants"
 
 export function SiteFooter() {
+  const currentYear = new Date().getFullYear()
+
   return (
-    <footer className="border-t py-12 md:py-16">
-      <div className="container px-4 md:px-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">PDFlyer</h3>
-            <p className="text-sm text-muted-foreground">
-              Your all-in-one PDF solution for merging, splitting, compressing, and more.
+    <footer className="w-full border-t border-border bg-background pt-16 pb-12 mt-16 text-foreground/80">
+      <div className="container px-4 md:px-6 mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-border/60">
+          {/* Printer's Mark / Colophon */}
+          <div className="space-y-4 md:col-span-1">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-sm bg-foreground text-background font-serif font-bold text-sm flex items-center justify-center">
+                P
+              </div>
+              <span className="text-lg font-serif font-semibold tracking-tight text-foreground">
+                PDFlyer
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed font-sans">
+              A private digital atelier established for the careful assembly, partitioning, and refinement of portable folios.
+              Engineered with unyielding respect for personal privacy and computational sovereignty.
             </p>
-            <div className="flex space-x-4">
-              <Link href="https://github.co/bijaybartaula" className="text-muted-foreground hover:text-foreground">
-                <Github className="h-5 w-5" />
-                <span className="sr-only">GitHub</span>
-              </Link>
-              <Link href="https://twitter.com/bijaybartaula" className="text-muted-foreground hover:text-foreground">
-                <Twitter className="h-5 w-5" />
-                <span className="sr-only">Twitter</span>
-              </Link>
-              <Link href="https://linkedin.com/in/bijaybartaula" className="text-muted-foreground hover:text-foreground">
-                <Linkedin className="h-5 w-5" />
-                <span className="sr-only">LinkedIn</span>
-              </Link>
+            <div className="pt-1 text-[0.7rem] font-mono text-muted-foreground">
+              Canonical: <span className="text-foreground/80">{PRODUCTION_APP_URL}</span>
             </div>
           </div>
-          <div>
-            <h3 className="text-lg font-medium mb-4">Tools</h3>
-            <ul className="space-y-2 text-sm">
+
+          {/* Instruments */}
+          <div className="space-y-3">
+            <h3 className="editorial-tag text-foreground tracking-wider">Compendium</h3>
+            <ul className="space-y-2 text-xs font-sans">
               <li>
-                <Link href="/tools/merge" className="text-muted-foreground hover:text-foreground">
-                  Merge PDFs
+                <Link href="/tools/merge" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Document Assembler (Merge)
                 </Link>
               </li>
               <li>
-                <Link href="/tools/split" className="text-muted-foreground hover:text-foreground">
-                  Split PDFs
+                <Link href="/tools/split" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Folio Partition (Split)
                 </Link>
               </li>
               <li>
-                <Link href="/tools/compress" className="text-muted-foreground hover:text-foreground">
-                  Compress PDFs
+                <Link href="/tools/compress" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Volume Compressor
                 </Link>
               </li>
               <li>
-                <Link href="/tools/convert" className="text-muted-foreground hover:text-foreground">
-                  Convert PDFs
+                <Link href="/tools/convert" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Format Transmuter (Convert)
                 </Link>
               </li>
               <li>
-                <Link href="/tools/watermark" className="text-muted-foreground hover:text-foreground">
-                  Add Watermark
+                <Link href="/tools/watermark" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Attribution & Seal (Watermark)
                 </Link>
               </li>
               <li>
-                <Link href="/tools/rotate" className="text-muted-foreground hover:text-foreground">
-                  Rotate PDFs
-                </Link>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-lg font-medium mb-4">Company</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/about" className="text-muted-foreground hover:text-foreground">
-                  About
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-muted-foreground hover:text-foreground">
-                  Contact
-                </Link>
-              </li>
-              <li>
-                <Link href="/faq" className="text-muted-foreground hover:text-foreground">
-                  FAQ
+                <Link href="/tools/rotate" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Orientation Corrector (Rotate)
                 </Link>
               </li>
             </ul>
           </div>
-          <div>
-            <h3 className="text-lg font-medium mb-4">Legal</h3>
-            <ul className="space-y-2 text-sm">
+
+          {/* About & Correspondence */}
+          <div className="space-y-3">
+            <h3 className="editorial-tag text-foreground tracking-wider">The Atelier</h3>
+            <ul className="space-y-2 text-xs font-sans">
               <li>
-                <Link href="/privacy" className="text-muted-foreground hover:text-foreground">
-                  Privacy Policy
+                <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Our Ethos & Principles
                 </Link>
               </li>
               <li>
-                <Link href="/terms" className="text-muted-foreground hover:text-foreground">
-                  Terms of Service
+                <Link href="/faq" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Colophon & Common Queries
                 </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Direct Correspondence Desk
+                </Link>
+              </li>
+              <li>
+                <Link href="/tools" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Full Instrument Catalogue
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* The Legal Covenant */}
+          <div className="space-y-3">
+            <h3 className="editorial-tag text-foreground tracking-wider">Covenants</h3>
+            <ul className="space-y-2 text-xs font-sans">
+              <li>
+                <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Privacy Covenant & Data Sanctity
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Terms of Service & Engagement
+                </Link>
+              </li>
+              <li>
+                <span className="text-muted-foreground/60 italic font-serif">
+                  Client-side execution guaranteed
+                </span>
               </li>
             </ul>
           </div>
         </div>
-        <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} PDFlyer. All rights reserved.</p>
+
+        {/* Bottom Colophon Row */}
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground font-sans">
+          <div>
+            &copy; {currentYear} PDFlyer Atelier. Set in classical typographic proportion. All rights reserved.
+          </div>
+          <div className="flex items-center gap-6">
+            <Link href="/privacy" className="hover:text-foreground transition-colors">
+              Privacy Covenant
+            </Link>
+            <span className="text-border">·</span>
+            <Link href="/terms" className="hover:text-foreground transition-colors">
+              Terms of Engagement
+            </Link>
+            <span className="text-border">·</span>
+            <Link href="https://github.com/bijaybartaula/PDFlyer" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+              Source Repository
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

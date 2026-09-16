@@ -314,7 +314,7 @@ export default function BillingPage() {
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col items-start gap-2">
-                <h4 className="font-medium">What's included:</h4>
+                <h4 className="font-medium">What&apos;s included:</h4>
                 <ul className="text-sm space-y-1">
                   {plan === "pro" ? (
                     <>

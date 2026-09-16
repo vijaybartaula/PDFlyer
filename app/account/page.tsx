@@ -179,7 +179,7 @@ export default function AccountPage() {
 
                   <div>
                     <h3 className="font-medium mb-2">Payment Methods</h3>
-                    <p className="text-sm text-muted-foreground mb-4">You don't have any payment methods saved yet.</p>
+                    <p className="text-sm text-muted-foreground mb-4">You don&apos;t have any payment methods saved yet.</p>
                     <Button variant="outline" asChild>
                       <Link href="/account/billing">Add Payment Method</Link>
                     </Button>
@@ -187,7 +187,7 @@ export default function AccountPage() {
 
                   <div>
                     <h3 className="font-medium mb-2">Billing History</h3>
-                    <p className="text-sm text-muted-foreground">You don't have any billing history yet.</p>
+                    <p className="text-sm text-muted-foreground">You don&apos;t have any billing history yet.</p>
                   </div>
                 </CardContent>
               </Card>

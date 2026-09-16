@@ -1,16 +1,79 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileOutput, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import PdfUploader from "./pdf-uploader"
-import { createDownloadURL, downloadFile } from "@/lib/pdf-utils"
+import { downloadFile, createDownloadURL } from "@/lib/pdf-utils"
+import {
+  generateDocxBlob,
+  generateXlsxBlob,
+  generatePptxBlob,
+  generateTxtBlob,
+  renderPdfToImageBlob,
+} from "@/lib/pdf-converter-service"
 
-// Note: Full PDF conversion to other formats would require server-side processing
-// This is a simplified version that demonstrates the UI flow
+interface FormatOption {
+  id: string
+  label: string
+  extension: string
+  mimeType: string
+  description: string
+  badge: string
+}
+
+const SUPPORTED_FORMATS: FormatOption[] = [
+  {
+    id: "docx",
+    label: "Microsoft Word Document",
+    extension: "docx",
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    description: "Converts text, headings, and paragraph blocks into an editable .docx manuscript.",
+    badge: "Word Processing",
+  },
+  {
+    id: "xlsx",
+    label: "Microsoft Excel Spreadsheet",
+    extension: "xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    description: "Extracts tabular rows, ledgers, and delimited values into standard .xlsx cells.",
+    badge: "Spreadsheet",
+  },
+  {
+    id: "pptx",
+    label: "Microsoft PowerPoint Presentation",
+    extension: "pptx",
+    mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    description: "Transforms document folios into structured presentation slides with titles and body text.",
+    badge: "Slides",
+  },
+  {
+    id: "png",
+    label: "PNG Image Plate (High Resolution)",
+    extension: "png",
+    mimeType: "image/png",
+    description: "Renders crisp 2x vector rasterization with lossless photographic clarity.",
+    badge: "Lossless Image",
+  },
+  {
+    id: "jpg",
+    label: "JPEG Image Plate",
+    extension: "jpg",
+    mimeType: "image/jpeg",
+    description: "Renders standard high-fidelity photographic plate suitable for web and archival distribution.",
+    badge: "Compressed Image",
+  },
+  {
+    id: "txt",
+    label: "Plain Text Document",
+    extension: "txt",
+    mimeType: "text/plain",
+    description: "Extracts pure unadorned UTF-8 typographic text matter preserving leaf breaks.",
+    badge: "Raw Transcript",
+  },
+]
 
 export default function PdfConverter() {
   const [file, setFile] = useState<File | null>(null)
@@ -18,9 +81,9 @@ export default function PdfConverter() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [lastConvertedFormat, setLastConvertedFormat] = useState<string>("docx")
   const [error, setError] = useState<string | null>(null)
 
-  // Clean up download URL when component unmounts
   useEffect(() => {
     return () => {
       if (downloadUrl) {
@@ -33,7 +96,6 @@ export default function PdfConverter() {
     setError(null)
     setIsComplete(false)
 
-    // Clean up previous download URL
     if (downloadUrl) {
       URL.revokeObjectURL(downloadUrl)
       setDownloadUrl(null)
@@ -46,9 +108,19 @@ export default function PdfConverter() {
     }
   }
 
+  const resetFile = () => {
+    if (downloadUrl) {
+      URL.revokeObjectURL(downloadUrl)
+      setDownloadUrl(null)
+    }
+    setFile(null)
+    setIsComplete(false)
+    setError(null)
+  }
+
   const convertPdf = async () => {
     if (!file) {
-      setError("Please upload a PDF file first.")
+      setError("Please deposit a PDF manuscript first.")
       return
     }
 
@@ -56,24 +128,46 @@ export default function PdfConverter() {
     setError(null)
 
     try {
-      // In a real implementation, this would use a PDF conversion library or API
-      // For this demo, we'll simulate the process by just returning the original PDF
-      // with a different extension
+      let outputBlob: Blob
 
-      // Read the file as an ArrayBuffer
-      const fileBuffer = await file.arrayBuffer()
+      switch (convertTo) {
+        case "docx":
+          outputBlob = await generateDocxBlob(file)
+          break
+        case "xlsx":
+          outputBlob = await generateXlsxBlob(file)
+          break
+        case "pptx":
+          outputBlob = await generatePptxBlob(file)
+          break
+        case "png":
+          outputBlob = await renderPdfToImageBlob(file, "png", 2.0)
+          break
+        case "jpg":
+          outputBlob = await renderPdfToImageBlob(file, "jpg", 2.0)
+          break
+        case "txt":
+          outputBlob = await generateTxtBlob(file)
+          break
+        default:
+          throw new Error(`The chosen medium format '${convertTo}' is not supported.`)
+      }
 
-      // Create a Blob from the ArrayBuffer
-      const blob = new Blob([fileBuffer], { type: getMimeType(convertTo) })
+      if (downloadUrl) {
+        URL.revokeObjectURL(downloadUrl)
+      }
 
-      // Create a download URL for the Blob
-      const url = createDownloadURL(blob)
-
+      const url = createDownloadURL(outputBlob)
       setDownloadUrl(url)
+      setLastConvertedFormat(convertTo)
       setIsComplete(true)
     } catch (err) {
       console.error("Error converting PDF:", err)
-      setError(err instanceof Error ? err.message : "An error occurred while converting the PDF")
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred during transmutation. Please verify document formatting.",
+      )
     } finally {
       setIsProcessing(false)
     }
@@ -81,158 +175,130 @@ export default function PdfConverter() {
 
   const downloadConvertedFile = () => {
     if (downloadUrl && file) {
-      const filename = file.name.replace(".pdf", `.${convertTo}`)
-      downloadFile(downloadUrl, filename)
+      const sanitizedName = file.name.replace(/\.[^/.]+$/, "")
+      downloadFile(downloadUrl, `${sanitizedName}.${lastConvertedFormat}`)
     }
   }
 
-  const getMimeType = (format: string): string => {
-    switch (format) {
-      case "docx":
-        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      case "xlsx":
-        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      case "pptx":
-        return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-      case "jpg":
-        return "image/jpeg"
-      case "png":
-        return "image/png"
-      case "txt":
-        return "text/plain"
-      case "html":
-        return "text/html"
-      default:
-        return "application/octet-stream"
-    }
-  }
-
-  const getFileExtensionLabel = () => {
-    switch (convertTo) {
-      case "docx":
-        return "Word Document (.docx)"
-      case "xlsx":
-        return "Excel Spreadsheet (.xlsx)"
-      case "pptx":
-        return "PowerPoint Presentation (.pptx)"
-      case "jpg":
-        return "JPEG Image (.jpg)"
-      case "png":
-        return "PNG Image (.png)"
-      case "txt":
-        return "Text File (.txt)"
-      case "html":
-        return "HTML File (.html)"
-      default:
-        return convertTo.toUpperCase()
-    }
-  }
+  const activeOption = SUPPORTED_FORMATS.find((f) => f.id === lastConvertedFormat)
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Convert PDF</h2>
-        <p className="text-muted-foreground">Transform your PDF into other file formats.</p>
+        <div className="editorial-tag text-muted-foreground mb-1">Instrument IV · Medium Transmutation</div>
+        <h2 className="text-xl md:text-2xl font-serif font-medium text-foreground">Format Transmuter</h2>
+        <p className="text-xs md:text-sm text-muted-foreground font-sans mt-1">
+          Transmute PDF manuscripts into editable documents, spreadsheets, presentation slides, or high-res images. The source manuscript stays loaded for repeated conversions.
+        </p>
       </div>
 
-      <PdfUploader onFilesSelected={handleFileSelected} multiple={false} />
+      {!file && <PdfUploader onFilesSelected={handleFileSelected} multiple={false} />}
+
+      {file && (
+        <div className="p-4 bg-muted/40 border border-border rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-serif font-medium text-foreground">{file.name}</div>
+            <div className="text-[0.7rem] text-muted-foreground font-mono">
+              Source: {(file.size / 1024 / 1024).toFixed(2)} MB · Ready for conversion to any format below
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={resetFile}
+            className="text-xs font-sans uppercase tracking-wider py-1 px-2.5 border border-border bg-background hover:bg-muted rounded-sm transition-colors text-foreground self-start sm:self-auto"
+          >
+            Deposit Different File
+          </button>
+        </div>
+      )}
 
       {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="rounded-sm">
+          <AlertDescription className="text-xs">{error}</AlertDescription>
         </Alert>
       )}
 
       {file && (
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-medium mb-2">Convert To</h3>
-            <p className="text-sm text-muted-foreground mb-4">Select the format you want to convert your PDF to.</p>
+        <div className="space-y-6 pt-2">
+          {/* Format Radio Selection */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-serif font-medium text-foreground">Target Medium Format</h3>
 
             <RadioGroup
               value={convertTo}
-              onValueChange={setConvertTo}
-              className="grid grid-cols-1 md:grid-cols-2 gap-2"
+              onValueChange={(val) => {
+                setConvertTo(val)
+                setError(null)
+              }}
+              className="grid grid-cols-1 md:grid-cols-2 gap-3"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="docx" id="docx" />
-                <Label htmlFor="docx">Word Document (.docx)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="xlsx" id="xlsx" />
-                <Label htmlFor="xlsx">Excel Spreadsheet (.xlsx)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="pptx" id="pptx" />
-                <Label htmlFor="pptx">PowerPoint (.pptx)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="jpg" id="jpg" />
-                <Label htmlFor="jpg">JPEG Image (.jpg)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="png" id="png" />
-                <Label htmlFor="png">PNG Image (.png)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="txt" id="txt" />
-                <Label htmlFor="txt">Text File (.txt)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="html" id="html" />
-                <Label htmlFor="html">HTML File (.html)</Label>
-              </div>
+              {SUPPORTED_FORMATS.map((format) => (
+                <div
+                  key={format.id}
+                  className={`flex items-start space-x-3 p-3.5 border rounded-sm transition-colors cursor-pointer ${
+                    convertTo === format.id
+                      ? "border-foreground bg-muted/40"
+                      : "border-border bg-card hover:border-foreground/40"
+                  }`}
+                  onClick={() => {
+                    setConvertTo(format.id)
+                    setError(null)
+                  }}
+                >
+                  <RadioGroupItem value={format.id} id={format.id} className="mt-1" />
+                  <div className="space-y-1 flex-1">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor={format.id} className="font-serif text-sm font-medium cursor-pointer">
+                        {format.label}
+                      </Label>
+                      <span className="editorial-tag text-[0.6rem] text-muted-foreground">
+                        .{format.extension}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-sans leading-relaxed">
+                      {format.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </RadioGroup>
           </div>
 
-          {isComplete ? (
-            <div className="mt-6">
-              <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900 mb-4">
-                <AlertDescription className="text-green-800 dark:text-green-300 flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Your PDF has been successfully converted to {getFileExtensionLabel()}!
-                </AlertDescription>
-              </Alert>
-
-              <Button className="w-full" onClick={downloadConvertedFile}>
-                <FileOutput className="mr-2 h-4 w-4" />
-                Download Converted File
-              </Button>
+          {/* Success Download Banner */}
+          {isComplete && downloadUrl && (
+            <div className="p-4 bg-muted/50 border border-foreground/20 rounded-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-serif font-medium text-foreground">
+                  ✓ Transmutation Complete: Ready as .{lastConvertedFormat} ({activeOption?.badge})
+                </div>
+                <span className="text-[0.7rem] font-mono text-muted-foreground">Original source remains loaded</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={downloadConvertedFile}
+                  className="px-6 py-2 bg-foreground text-background text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90"
+                >
+                  Download {activeOption?.extension.toUpperCase()} File
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Select any other format above and click &ldquo;Convert Again&rdquo; to generate another format.
+                </span>
+              </div>
             </div>
-          ) : (
-            <Button className="w-full" onClick={convertPdf} disabled={isProcessing}>
-              {isProcessing ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                "Convert PDF"
-              )}
-            </Button>
           )}
+
+          {/* Primary Action Button */}
+          <Button
+            onClick={convertPdf}
+            disabled={isProcessing}
+            className="w-full py-2.5 bg-foreground text-background text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90 transition-opacity"
+          >
+            {isProcessing
+              ? "Transmuting Manuscript..."
+              : isComplete
+              ? `Convert Again to ${convertTo.toUpperCase()} from Same Source`
+              : `Convert to ${convertTo.toUpperCase()}`}
+          </Button>
         </div>
       )}
     </div>

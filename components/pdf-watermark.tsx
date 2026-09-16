@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { FileOutput, AlertCircle } from "lucide-react"
+import React, { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,18 +9,22 @@ import { Slider } from "@/components/ui/slider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import PdfUploader from "./pdf-uploader"
-import { addTextWatermark, uint8ArrayToBlob, createDownloadURL, downloadFile } from "@/lib/pdf-utils"
+import { addTextWatermark, addImageWatermark, uint8ArrayToBlob, createDownloadURL, downloadFile } from "@/lib/pdf-utils"
 
 export default function PdfWatermark() {
   const [file, setFile] = useState<File | null>(null)
   const [watermarkType, setWatermarkType] = useState<"text" | "image">("text")
   const [watermarkText, setWatermarkText] = useState<string>("CONFIDENTIAL")
+  const [watermarkImage, setWatermarkImage] = useState<File | null>(null)
   const [opacity, setOpacity] = useState<number>(30)
   const [position, setPosition] = useState<string>("center")
   const [isProcessing, setIsProcessing] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [lastWatermarkDesc, setLastWatermarkDesc] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
+
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   // Clean up download URL when component unmounts
   useEffect(() => {
@@ -36,7 +39,6 @@ export default function PdfWatermark() {
     setError(null)
     setIsComplete(false)
 
-    // Clean up previous download URL
     if (downloadUrl) {
       URL.revokeObjectURL(downloadUrl)
       setDownloadUrl(null)
@@ -49,14 +51,41 @@ export default function PdfWatermark() {
     }
   }
 
-  const addWatermark = async () => {
+  const resetFile = () => {
+    if (downloadUrl) {
+      URL.revokeObjectURL(downloadUrl)
+      setDownloadUrl(null)
+    }
+    setFile(null)
+    setIsComplete(false)
+    setError(null)
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const img = e.target.files[0]
+      if (!img.type.startsWith("image/")) {
+        setError("Please select a valid image file (PNG or JPEG).")
+        return
+      }
+      setWatermarkImage(img)
+      setError(null)
+    }
+  }
+
+  const applyWatermark = async () => {
     if (!file) {
-      setError("Please upload a PDF file first.")
+      setError("Please deposit a PDF manuscript first.")
       return
     }
 
     if (watermarkType === "text" && !watermarkText.trim()) {
-      setError("Please enter watermark text.")
+      setError("Please specify watermark text.")
+      return
+    }
+
+    if (watermarkType === "image" && !watermarkImage) {
+      setError("Please upload a watermark seal or image (PNG or JPG).")
       return
     }
 
@@ -64,29 +93,28 @@ export default function PdfWatermark() {
     setError(null)
 
     try {
-      // For now, we only support text watermarks
+      let watermarkedBytes: Uint8Array
+      const pos = position as "center" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "tile"
+
       if (watermarkType === "text") {
-        // Perform the actual watermarking
-        const watermarkedPdfBytes = await addTextWatermark(
-          file,
-          watermarkText,
-          opacity,
-          position as "center" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "tile",
-        )
-
-        // Convert to blob and create download URL
-        const pdfBlob = uint8ArrayToBlob(watermarkedPdfBytes)
-        const url = createDownloadURL(pdfBlob)
-
-        setDownloadUrl(url)
-        setIsComplete(true)
+        watermarkedBytes = await addTextWatermark(file, watermarkText, opacity, pos)
+        setLastWatermarkDesc(`Text: "${watermarkText}" (${opacity}%, position: ${position})`)
       } else {
-        // Image watermark is not implemented yet
-        setError("Image watermarking is not implemented yet.")
+        watermarkedBytes = await addImageWatermark(file, watermarkImage!, opacity, pos)
+        setLastWatermarkDesc(`Image seal: ${watermarkImage!.name} (${opacity}%, position: ${position})`)
       }
+
+      const pdfBlob = uint8ArrayToBlob(watermarkedBytes)
+      if (downloadUrl) {
+        URL.revokeObjectURL(downloadUrl)
+      }
+      const url = createDownloadURL(pdfBlob)
+
+      setDownloadUrl(url)
+      setIsComplete(true)
     } catch (err) {
-      console.error("Error adding watermark:", err)
-      setError(err instanceof Error ? err.message : "An error occurred while adding the watermark")
+      console.error("Error applying watermark:", err)
+      setError(err instanceof Error ? err.message : "An error occurred while stamping the watermark onto the PDF.")
     } finally {
       setIsProcessing(false)
     }
@@ -94,159 +122,204 @@ export default function PdfWatermark() {
 
   const downloadWatermarkedPdf = () => {
     if (downloadUrl && file) {
-      const filename = file.name.replace(".pdf", "_watermarked.pdf")
-      downloadFile(downloadUrl, filename)
+      const sanitizedName = file.name.replace(/\.[^/.]+$/, "")
+      downloadFile(downloadUrl, `${sanitizedName}_sealed.pdf`)
     }
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Add Watermark</h2>
-        <p className="text-muted-foreground">Add text or image watermarks to your PDF document.</p>
+        <div className="editorial-tag text-muted-foreground mb-1">Instrument V · Provenance & Stamp</div>
+        <h2 className="text-xl md:text-2xl font-serif font-medium text-foreground">Attribution & Seal (Watermark)</h2>
+        <p className="text-xs md:text-sm text-muted-foreground font-sans mt-1">
+          Inscribe publisher marks, security watermarks, or emblems across your manuscript. Both text and image stamps are supported with full opacity and positioning control.
+        </p>
       </div>
 
-      <PdfUploader onFilesSelected={handleFileSelected} multiple={false} />
+      {!file && <PdfUploader onFilesSelected={handleFileSelected} multiple={false} />}
+
+      {file && (
+        <div className="p-4 bg-muted/40 border border-border rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-serif font-medium text-foreground">{file.name}</div>
+            <div className="text-[0.7rem] text-muted-foreground font-mono">
+              Source: {(file.size / 1024 / 1024).toFixed(2)} MB · Ready for repeated watermark application
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={resetFile}
+            className="text-xs font-sans uppercase tracking-wider py-1 px-2.5 border border-border bg-background hover:bg-muted rounded-sm transition-colors text-foreground self-start sm:self-auto"
+          >
+            Deposit Different File
+          </button>
+        </div>
+      )}
 
       {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="rounded-sm">
+          <AlertDescription className="text-xs">{error}</AlertDescription>
         </Alert>
       )}
 
       {file && (
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-medium mb-2">Watermark Options</h3>
-
-            <div className="space-y-4">
-              <div>
-                <Label className="mb-2 block">Watermark Type</Label>
-                <RadioGroup
-                  value={watermarkType}
-                  onValueChange={(value: "text" | "image") => setWatermarkType(value)}
-                  className="flex gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="text" id="text" />
-                    <Label htmlFor="text">Text</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="image" id="image" />
-                    <Label htmlFor="image">Image</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              {watermarkType === "text" && (
-                <div>
-                  <Label htmlFor="watermark-text" className="mb-2 block">
-                    Watermark Text
+        <div className="space-y-6 pt-2">
+          {/* Watermark Type Selection */}
+          <div className="space-y-4 p-5 border border-border bg-card rounded-sm">
+            <div>
+              <Label className="text-xs uppercase tracking-wider font-sans text-muted-foreground mb-2 block font-medium">
+                Seal Category
+              </Label>
+              <RadioGroup
+                value={watermarkType}
+                onValueChange={(val: "text" | "image") => {
+                  setWatermarkType(val)
+                  setError(null)
+                }}
+                className="flex gap-6"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="text" id="watermark-type-text" />
+                  <Label htmlFor="watermark-type-text" className="font-serif text-sm cursor-pointer">
+                    Text Inscription
                   </Label>
-                  <Input
-                    id="watermark-text"
-                    value={watermarkText}
-                    onChange={(e) => setWatermarkText(e.target.value)}
-                    placeholder="Enter watermark text"
-                    className="max-w-xs"
-                  />
                 </div>
-              )}
-
-              {watermarkType === "image" && (
-                <div>
-                  <Label className="mb-2 block">Upload Watermark Image</Label>
-                  <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer max-w-xs">
-                    <p className="text-sm text-muted-foreground">Click to upload an image (PNG or JPG)</p>
-                  </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="image" id="watermark-type-image" />
+                  <Label htmlFor="watermark-type-image" className="font-serif text-sm cursor-pointer">
+                    Image Emblem / Seal (PNG, JPG)
+                  </Label>
                 </div>
-              )}
+              </RadioGroup>
+            </div>
 
-              <div>
-                <Label className="mb-2 block">Opacity: {opacity}%</Label>
-                <Slider
-                  value={[opacity]}
-                  onValueChange={(value) => setOpacity(value[0])}
-                  min={10}
-                  max={100}
-                  step={5}
-                  className="max-w-xs"
+            {/* Text Input */}
+            {watermarkType === "text" && (
+              <div className="space-y-1.5 pt-2">
+                <Label htmlFor="watermark-text" className="text-xs uppercase tracking-wider font-sans text-muted-foreground">
+                  Watermark Inscription
+                </Label>
+                <Input
+                  id="watermark-text"
+                  value={watermarkText}
+                  onChange={(e) => {
+                    setWatermarkText(e.target.value)
+                    setError(null)
+                  }}
+                  placeholder="e.g. CONFIDENTIAL or ARCHIVAL COPY"
+                  className="max-w-md text-sm rounded-sm bg-background border-border"
                 />
               </div>
+            )}
 
-              <div>
-                <Label htmlFor="position" className="mb-2 block">
-                  Position
+            {/* Image Input */}
+            {watermarkType === "image" && (
+              <div className="space-y-2 pt-2">
+                <Label className="text-xs uppercase tracking-wider font-sans text-muted-foreground block">
+                  Select Seal Image
                 </Label>
-                <Select value={position} onValueChange={setPosition}>
-                  <SelectTrigger className="max-w-xs">
-                    <SelectValue placeholder="Select position" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="center">Center</SelectItem>
-                    <SelectItem value="top-left">Top Left</SelectItem>
-                    <SelectItem value="top-right">Top Right</SelectItem>
-                    <SelectItem value="bottom-left">Bottom Left</SelectItem>
-                    <SelectItem value="bottom-right">Bottom Right</SelectItem>
-                    <SelectItem value="tile">Tile (Repeat)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <input
+                  type="file"
+                  ref={imageInputRef}
+                  onChange={handleImageChange}
+                  accept="image/png,image/jpeg,image/jpg"
+                  className="hidden"
+                />
+                <div
+                  onClick={() => imageInputRef.current?.click()}
+                  className="border border-dashed border-border hover:border-foreground/40 p-4 rounded-sm cursor-pointer bg-background max-w-md text-center transition-colors"
+                >
+                  {watermarkImage ? (
+                    <div className="text-xs font-serif font-medium text-foreground">
+                      Selected Seal: <span className="font-mono">{watermarkImage.name}</span> (Click to change)
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground font-sans">
+                      Click to choose an image emblem (PNG with transparency recommended, or JPG)
+                    </div>
+                  )}
+                </div>
               </div>
+            )}
+
+            {/* Opacity Slider */}
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between text-xs font-sans">
+                <span className="text-muted-foreground uppercase tracking-wider">Watermark Opacity</span>
+                <span className="font-mono text-foreground font-medium">{opacity}%</span>
+              </div>
+              <Slider
+                value={[opacity]}
+                onValueChange={(val) => setOpacity(val[0])}
+                min={5}
+                max={100}
+                step={5}
+                disabled={isProcessing}
+                className="max-w-md"
+              />
+              <div className="flex justify-between text-[0.7rem] text-muted-foreground font-sans max-w-md">
+                <span>Subtle (5%)</span>
+                <span>Prominent (100%)</span>
+              </div>
+            </div>
+
+            {/* Position Select */}
+            <div className="space-y-1.5 pt-2">
+              <Label htmlFor="position-select" className="text-xs uppercase tracking-wider font-sans text-muted-foreground block">
+                Folio Placement
+              </Label>
+              <Select value={position} onValueChange={setPosition}>
+                <SelectTrigger id="position-select" className="max-w-md text-sm rounded-sm bg-background border-border">
+                  <SelectValue placeholder="Choose placement" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="center">Center (Rotated 45°)</SelectItem>
+                  <SelectItem value="top-left">Top Left Margin</SelectItem>
+                  <SelectItem value="top-right">Top Right Margin</SelectItem>
+                  <SelectItem value="bottom-left">Bottom Left Margin</SelectItem>
+                  <SelectItem value="bottom-right">Bottom Right Margin</SelectItem>
+                  <SelectItem value="tile">Repeated Grid (Tile)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {isComplete ? (
-            <div className="mt-6">
-              <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900 mb-4">
-                <AlertDescription className="text-green-800 dark:text-green-300 flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Watermark has been successfully added to your PDF!
-                </AlertDescription>
-              </Alert>
-
-              <Button className="w-full" onClick={downloadWatermarkedPdf}>
-                <FileOutput className="mr-2 h-4 w-4" />
-                Download Watermarked PDF
-              </Button>
+          {/* Download & Success Box */}
+          {isComplete && downloadUrl && (
+            <div className="p-4 bg-muted/50 border border-foreground/20 rounded-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-serif font-medium text-foreground">
+                  ✓ Watermark Applied: {lastWatermarkDesc}
+                </div>
+                <span className="text-[0.7rem] font-mono text-muted-foreground">Original manuscript remains in memory</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={downloadWatermarkedPdf}
+                  className="px-6 py-2 bg-foreground text-background text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90"
+                >
+                  Download Sealed PDF
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Adjust text, emblem, position, or opacity above and click &ldquo;Apply Watermark Again&rdquo;.
+                </span>
+              </div>
             </div>
-          ) : (
-            <Button
-              className="w-full"
-              onClick={addWatermark}
-              disabled={isProcessing || (watermarkType === "text" && !watermarkText.trim())}
-            >
-              {isProcessing ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                "Add Watermark"
-              )}
-            </Button>
           )}
+
+          {/* Primary Action Button */}
+          <Button
+            onClick={applyWatermark}
+            disabled={isProcessing || (watermarkType === "text" && !watermarkText.trim()) || (watermarkType === "image" && !watermarkImage)}
+            className="w-full py-2.5 bg-foreground text-background text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90 transition-opacity"
+          >
+            {isProcessing
+              ? "Inscribing Watermark..."
+              : isComplete
+              ? "Apply Watermark Again From Same Source"
+              : "Inscribe Watermark onto Folios"}
+          </Button>
         </div>
       )}
     </div>

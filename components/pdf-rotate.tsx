@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileOutput, RotateCw, RotateCcw, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -26,6 +25,7 @@ export default function PdfRotate() {
   const [isComplete, setIsComplete] = useState(false)
   const [totalPages, setTotalPages] = useState<number>(0)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [lastRotatedAngle, setLastRotatedAngle] = useState<number>(90)
   const [error, setError] = useState<string | null>(null)
 
   // Clean up download URL when component unmounts
@@ -41,7 +41,6 @@ export default function PdfRotate() {
     setError(null)
     setIsComplete(false)
 
-    // Clean up previous download URL
     if (downloadUrl) {
       URL.revokeObjectURL(downloadUrl)
       setDownloadUrl(null)
@@ -50,12 +49,11 @@ export default function PdfRotate() {
     if (files.length > 0) {
       setFile(files[0])
       try {
-        // Get actual page count from the PDF
         const pageCount = await getPdfPageCount(files[0])
         setTotalPages(pageCount)
       } catch (err) {
-        console.error("Error getting page count:", err)
-        setError("Could not read the PDF file. The file might be corrupted or password protected.")
+        console.error("Error reading PDF:", err)
+        setError("Could not parse the PDF manuscript. Please verify it is not encrypted.")
         setFile(null)
         setTotalPages(0)
       }
@@ -65,14 +63,25 @@ export default function PdfRotate() {
     }
   }
 
+  const resetFile = () => {
+    if (downloadUrl) {
+      URL.revokeObjectURL(downloadUrl)
+      setDownloadUrl(null)
+    }
+    setFile(null)
+    setTotalPages(0)
+    setIsComplete(false)
+    setError(null)
+  }
+
   const rotatePdf = async () => {
     if (!file) {
-      setError("Please upload a PDF file first.")
+      setError("Please deposit a PDF manuscript first.")
       return
     }
 
     if (rotateOption === "specific" && !pageRange.trim()) {
-      setError("Please enter page numbers to rotate.")
+      setError("Please specify page numbers to rectify (e.g. 1, 3, 5).")
       return
     }
 
@@ -83,30 +92,27 @@ export default function PdfRotate() {
       let rotatedPdfBytes: Uint8Array
 
       if (rotateOption === "all") {
-        // Rotate all pages
         rotatedPdfBytes = await rotatePDF(file, rotateAngle, "all")
       } else {
-        // Rotate specific pages
         const pageNumbers = parsePageRanges(pageRange, totalPages)
-
         if (pageNumbers.length === 0) {
-          setError("Please enter valid page numbers.")
-          setIsProcessing(false)
-          return
+          throw new Error("No valid page numbers found in the specified range.")
         }
-
         rotatedPdfBytes = await rotatePDF(file, rotateAngle, pageNumbers)
       }
 
-      // Convert to blob and create download URL
       const pdfBlob = uint8ArrayToBlob(rotatedPdfBytes)
+      if (downloadUrl) {
+        URL.revokeObjectURL(downloadUrl)
+      }
       const url = createDownloadURL(pdfBlob)
 
       setDownloadUrl(url)
+      setLastRotatedAngle(rotateAngle)
       setIsComplete(true)
     } catch (err) {
       console.error("Error rotating PDF:", err)
-      setError(err instanceof Error ? err.message : "An error occurred while rotating the PDF")
+      setError(err instanceof Error ? err.message : "An error occurred while rotating the folios.")
     } finally {
       setIsProcessing(false)
     }
@@ -114,153 +120,166 @@ export default function PdfRotate() {
 
   const downloadRotatedPdf = () => {
     if (downloadUrl && file) {
-      const filename = file.name.replace(".pdf", "_rotated.pdf")
-      downloadFile(downloadUrl, filename)
+      const sanitizedName = file.name.replace(/\.[^/.]+$/, "")
+      downloadFile(downloadUrl, `${sanitizedName}_rotated${lastRotatedAngle}.pdf`)
     }
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Rotate PDF</h2>
-        <p className="text-muted-foreground">Adjust the orientation of pages in your PDF document.</p>
+        <div className="editorial-tag text-muted-foreground mb-1">Instrument VI · Orientation Alignment</div>
+        <h2 className="text-xl md:text-2xl font-serif font-medium text-foreground">Orientation Corrector</h2>
+        <p className="text-xs md:text-sm text-muted-foreground font-sans mt-1">
+          Rectify inverted leaves or landscape folios. The original source manuscript remains available in memory for repeated corrections.
+        </p>
       </div>
 
-      <PdfUploader onFilesSelected={handleFileSelected} multiple={false} />
+      {!file && <PdfUploader onFilesSelected={handleFileSelected} multiple={false} />}
+
+      {file && (
+        <div className="p-4 bg-muted/40 border border-border rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-serif font-medium text-foreground">{file.name}</div>
+            <div className="text-[0.7rem] text-muted-foreground font-mono">
+              Total Leaves: {totalPages} pages · {(file.size / 1024 / 1024).toFixed(2)} MB · Persistent in state
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={resetFile}
+            className="text-xs font-sans uppercase tracking-wider py-1 px-2.5 border border-border bg-background hover:bg-muted rounded-sm transition-colors text-foreground self-start sm:self-auto"
+          >
+            Deposit Different File
+          </button>
+        </div>
+      )}
 
       {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="rounded-sm">
+          <AlertDescription className="text-xs">{error}</AlertDescription>
         </Alert>
       )}
 
       {file && totalPages > 0 && (
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-medium mb-2">Rotation Options</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Your PDF has {totalPages} pages. Choose how you want to rotate it.
-            </p>
+        <div className="space-y-6 pt-2">
+          <div className="space-y-4 p-5 border border-border bg-card rounded-sm">
+            <h3 className="text-sm font-serif font-medium text-foreground">Scope of Orientation</h3>
 
-            <div className="space-y-4">
-              <RadioGroup value={rotateOption} onValueChange={(value: "all" | "specific") => setRotateOption(value)}>
-                <div className="flex items-start space-x-2 mb-4">
-                  <RadioGroupItem value="all" id="rotate-all" />
-                  <div>
-                    <Label htmlFor="rotate-all" className="font-medium">
-                      Rotate all pages
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Apply the same rotation to all pages in the document
-                    </p>
-                  </div>
+            <RadioGroup
+              value={rotateOption}
+              onValueChange={(val: "all" | "specific") => {
+                setRotateOption(val)
+                setError(null)
+              }}
+              className="space-y-3"
+            >
+              <div className="flex items-start space-x-3">
+                <RadioGroupItem value="all" id="rotate-all-option" className="mt-1" />
+                <div>
+                  <Label htmlFor="rotate-all-option" className="font-serif text-sm cursor-pointer">
+                    Apply to Entire Volume ({totalPages} Leaves)
+                  </Label>
+                  <p className="text-xs text-muted-foreground font-sans">
+                    Rotate every leaf in the manuscript simultaneously.
+                  </p>
                 </div>
+              </div>
 
-                <div className="flex items-start space-x-2">
-                  <RadioGroupItem value="specific" id="rotate-specific" />
-                  <div className="flex-1">
-                    <Label htmlFor="rotate-specific" className="font-medium">
-                      Rotate specific pages
-                    </Label>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Apply rotation only to selected pages (e.g., 1-3, 5, 7-9)
-                    </p>
+              <div className="flex items-start space-x-3">
+                <RadioGroupItem value="specific" id="rotate-specific-option" className="mt-1" />
+                <div className="flex-1 space-y-1">
+                  <Label htmlFor="rotate-specific-option" className="font-serif text-sm cursor-pointer">
+                    Apply Only to Designated Pages
+                  </Label>
+                  <p className="text-xs text-muted-foreground font-sans">
+                    Specify comma-separated leaves or ranges (e.g. 1, 3, 5-8).
+                  </p>
+                  {rotateOption === "specific" && (
                     <Input
                       type="text"
-                      placeholder="e.g., 1-3, 5, 7-9"
+                      placeholder="e.g. 1, 3, 5-7"
                       value={pageRange}
                       onChange={(e) => setPageRange(e.target.value)}
-                      disabled={rotateOption !== "specific"}
-                      className="max-w-xs"
+                      className="max-w-xs text-sm rounded-sm bg-background border-border mt-2"
                     />
-                  </div>
+                  )}
                 </div>
-              </RadioGroup>
+              </div>
+            </RadioGroup>
 
-              <div>
-                <Label className="mb-2 block">Rotation Angle</Label>
-                <div className="flex gap-2">
-                  <Button
-                    variant={rotateAngle === 90 ? "default" : "outline"}
-                    onClick={() => setRotateAngle(90)}
-                    className="flex-1"
-                  >
-                    <RotateCw className="mr-2 h-4 w-4" />
-                    90° Clockwise
-                  </Button>
-                  <Button
-                    variant={rotateAngle === 180 ? "default" : "outline"}
-                    onClick={() => setRotateAngle(180)}
-                    className="flex-1"
-                  >
-                    <RotateCw className="mr-2 h-4 w-4" />
-                    180°
-                  </Button>
-                  <Button
-                    variant={rotateAngle === 270 ? "default" : "outline"}
-                    onClick={() => setRotateAngle(270)}
-                    className="flex-1"
-                  >
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    90° Counter-clockwise
-                  </Button>
-                </div>
+            <div className="pt-3 border-t border-border/60 space-y-2">
+              <Label className="text-xs uppercase tracking-wider font-sans text-muted-foreground block">
+                Rotation Angle
+              </Label>
+              <div className="grid grid-cols-3 gap-2 max-w-md">
+                <button
+                  type="button"
+                  onClick={() => setRotateAngle(90)}
+                  className={`py-2 px-3 text-xs uppercase tracking-wider font-medium rounded-sm border transition-colors ${
+                    rotateAngle === 90
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-background text-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  90° Clockwise
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRotateAngle(180)}
+                  className={`py-2 px-3 text-xs uppercase tracking-wider font-medium rounded-sm border transition-colors ${
+                    rotateAngle === 180
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-background text-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  180° Inversion
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRotateAngle(270)}
+                  className={`py-2 px-3 text-xs uppercase tracking-wider font-medium rounded-sm border transition-colors ${
+                    rotateAngle === 270
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-background text-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  90° Counter-CW
+                </button>
               </div>
             </div>
           </div>
 
-          {isComplete ? (
-            <div className="mt-6">
-              <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900 mb-4">
-                <AlertDescription className="text-green-800 dark:text-green-300 flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Your PDF has been successfully rotated!
-                </AlertDescription>
-              </Alert>
-
-              <Button className="w-full" onClick={downloadRotatedPdf}>
-                <FileOutput className="mr-2 h-4 w-4" />
-                Download Rotated PDF
-              </Button>
+          {/* Download and Success Area */}
+          {isComplete && downloadUrl && (
+            <div className="p-4 bg-muted/50 border border-foreground/20 rounded-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-serif font-medium text-foreground">
+                  ✓ Rotation Applied ({lastRotatedAngle}° {rotateOption === "all" ? "all leaves" : `leaves ${pageRange}`})
+                </div>
+                <span className="text-[0.7rem] font-mono text-muted-foreground">Original source remains loaded</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={downloadRotatedPdf}
+                  className="px-6 py-2 bg-foreground text-background text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90"
+                >
+                  Download Rotated PDF
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Select a different angle or page set above and rotate again.
+                </span>
+              </div>
             </div>
-          ) : (
-            <Button
-              className="w-full"
-              onClick={rotatePdf}
-              disabled={isProcessing || (rotateOption === "specific" && !pageRange)}
-            >
-              {isProcessing ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                "Rotate PDF"
-              )}
-            </Button>
           )}
+
+          <Button
+            onClick={rotatePdf}
+            disabled={isProcessing || (rotateOption === "specific" && !pageRange.trim())}
+            className="w-full py-2.5 bg-foreground text-background text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90 transition-opacity"
+          >
+            {isProcessing ? "Rectifying Folios..." : isComplete ? "Rotate Again From Original Manuscript" : "Execute Rotation"}
+          </Button>
         </div>
       )}
     </div>

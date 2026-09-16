@@ -1,10 +1,7 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useRef } from "react"
-import { Upload, X, FileText } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 interface PdfUploaderProps {
   onFilesSelected: (files: File[]) => void
@@ -69,9 +66,9 @@ export default function PdfUploader({
   return (
     <div className={className}>
       <div
-        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-          ${isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/30"}
-          ${files.length > 0 ? "pb-2" : "py-12"}`}
+        className={`border border-dashed rounded-sm p-6 text-center cursor-pointer transition-colors bg-card ${
+          isDragging ? "border-foreground bg-muted/60" : "border-border hover:border-foreground/40"
+        } ${files.length > 0 ? "pb-3" : "py-10 md:py-14"}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -87,58 +84,81 @@ export default function PdfUploader({
         />
 
         {files.length === 0 && (
-          <div className="flex flex-col items-center">
-            <Upload className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">Drag & drop your PDF{multiple ? "s" : ""} here</p>
-            <p className="text-sm text-muted-foreground mt-2">or click to browse</p>
-            <Button
-              variant="outline"
-              className="mt-4"
+          <div className="flex flex-col items-center max-w-md mx-auto">
+            {/* Custom Classical Manuscript Ingestion Icon */}
+            <div className="w-12 h-12 rounded-sm bg-muted/70 flex items-center justify-center text-foreground/80 mb-4 border border-border">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" />
+                <path d="M14 2v6h6M12 18v-6M9 15l3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <p className="text-base font-serif font-medium text-foreground">
+              Deposit PDF {multiple ? "manuscripts" : "manuscript"} upon this desk
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 font-sans">
+              Drag folios into this tray, or browse the local file repository
+            </p>
+            <button
+              type="button"
+              className="mt-4 px-4 py-2 border border-border bg-background hover:bg-muted/70 text-xs font-sans uppercase tracking-wider font-semibold rounded-sm transition-colors text-foreground"
               onClick={(e) => {
                 e.stopPropagation()
                 triggerFileInput()
               }}
             >
-              Select PDF{multiple ? "s" : ""}
-            </Button>
+              Select Manuscript{multiple ? "s" : ""}
+            </button>
           </div>
         )}
 
         {files.length > 0 && (
-          <div className="space-y-2 mt-4" onClick={(e) => e.stopPropagation()}>
+          <div className="space-y-2 mt-2" onClick={(e) => e.stopPropagation()}>
+            <div className="editorial-tag text-muted-foreground text-left mb-2">
+              Ingested Folios ({files.length} of {maxFiles})
+            </div>
             {files.map((file, index) => (
-              <div key={index} className="flex items-center justify-between bg-muted p-3 rounded-md">
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <FileText className="h-5 w-5 flex-shrink-0" />
-                  <span className="text-sm font-medium truncate">{file.name}</span>
-                  <span className="text-xs text-muted-foreground">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+              <div
+                key={index}
+                className="flex items-center justify-between bg-muted/50 border border-border/80 p-3 rounded-sm text-left"
+              >
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <span className="w-5 h-5 rounded-sm bg-foreground text-background text-[0.65rem] font-serif font-bold flex items-center justify-center flex-shrink-0">
+                    {index + 1}
+                  </span>
+                  <div className="truncate">
+                    <div className="text-xs font-serif font-medium text-foreground truncate">{file.name}</div>
+                    <div className="text-[0.65rem] text-muted-foreground font-mono">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB · Portable Document Format
+                    </div>
+                  </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
+                <button
+                  type="button"
+                  className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded-sm"
+                  aria-label="Remove leaf"
                   onClick={(e) => {
                     e.stopPropagation()
                     removeFile(index)
                   }}
                 >
-                  <X className="h-4 w-4" />
-                </Button>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+                  </svg>
+                </button>
               </div>
             ))}
 
             {multiple && files.length < maxFiles && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-2"
+              <button
+                type="button"
+                className="w-full mt-3 py-2 border border-dashed border-border hover:border-foreground/40 text-xs font-sans uppercase tracking-wider font-medium text-muted-foreground hover:text-foreground rounded-sm transition-colors bg-background"
                 onClick={(e) => {
                   e.stopPropagation()
                   triggerFileInput()
                 }}
               >
-                Add More PDFs
-              </Button>
+                + Append Further Manuscripts
+              </button>
             )}
           </div>
         )}

@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss"
+import tailwindcssAnimate from "tailwindcss-animate"
 
 const config = {
   darkMode: ["class"],
@@ -19,6 +20,10 @@ const config = {
       },
     },
     extend: {
+      fontFamily: {
+        serif: ["var(--font-serif)", "Georgia", "Cambria", "Times New Roman", "serif"],
+        sans: ["var(--font-sans)", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -80,7 +85,7 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config
 
 export default config

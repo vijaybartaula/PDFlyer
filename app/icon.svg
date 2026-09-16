@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <rect width="32" height="32" rx="4" fill="#211E1B"/>
+  <rect x="2" y="2" width="28" height="28" rx="3" stroke="#8C6D46" stroke-width="0.75" stroke-dasharray="2 1" fill="none"/>
+  <!-- Classical Folio Spine & Leaf -->
+  <path d="M9 7.5H19C21.4853 7.5 23.5 9.51472 23.5 12C23.5 14.4853 21.4853 16.5 19 16.5H12V24.5H9V7.5Z" fill="#F8F5EE"/>
+  <path d="M12 10.5H18.5C19.8807 10.5 21 11.6193 21 13C21 14.3807 19.8807 15.5 18.5 15.5H12V10.5Z" fill="#211E1B"/>
+  <circle cx="21" cy="22" r="1.5" fill="#8C6D46"/>
+</svg>

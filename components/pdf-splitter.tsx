@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileOutput, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,14 +19,14 @@ import {
 
 export default function PdfSplitter() {
   const [file, setFile] = useState<File | null>(null)
-  const [splitMethod, setSplitMethod] = useState<"all" | "range" | "custom">("all")
-  const [pageRange, setPageRange] = useState<string>("")
+  const [splitMethod, setSplitMethod] = useState<"all" | "range" | "custom">("range")
+  const [pageRange, setPageRange] = useState<string>("1-2")
   const [isProcessing, setIsProcessing] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
   const [totalPages, setTotalPages] = useState<number>(0)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [completedSummary, setCompletedSummary] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
-  const [zipDownloadUrl, setZipDownloadUrl] = useState<string | null>(null)
 
   // Clean up download URLs when component unmounts
   useEffect(() => {
@@ -35,35 +34,33 @@ export default function PdfSplitter() {
       if (downloadUrl) {
         URL.revokeObjectURL(downloadUrl)
       }
-      if (zipDownloadUrl) {
-        URL.revokeObjectURL(zipDownloadUrl)
-      }
     }
-  }, [downloadUrl, zipDownloadUrl])
+  }, [downloadUrl])
 
   const handleFileSelected = async (files: File[]) => {
     setError(null)
     setIsComplete(false)
 
-    // Clean up previous download URLs
     if (downloadUrl) {
       URL.revokeObjectURL(downloadUrl)
       setDownloadUrl(null)
     }
-    if (zipDownloadUrl) {
-      URL.revokeObjectURL(zipDownloadUrl)
-      setZipDownloadUrl(null)
-    }
 
     if (files.length > 0) {
-      setFile(files[0])
+      const selected = files[0]
+      setFile(selected)
       try {
-        // Get actual page count from the PDF
-        const pageCount = await getPdfPageCount(files[0])
+        const pageCount = await getPdfPageCount(selected)
         setTotalPages(pageCount)
+        // Default reasonable range
+        if (pageCount > 1) {
+          setPageRange(`1-${Math.min(pageCount, 2)}`)
+        } else {
+          setPageRange("1")
+        }
       } catch (err) {
-        console.error("Error getting page count:", err)
-        setError("Could not read the PDF file. The file might be corrupted or password protected.")
+        console.error("Error reading PDF:", err)
+        setError("Could not parse the PDF manuscript. Please verify it is not password-protected.")
         setFile(null)
         setTotalPages(0)
       }
@@ -73,9 +70,20 @@ export default function PdfSplitter() {
     }
   }
 
+  const resetFile = () => {
+    if (downloadUrl) {
+      URL.revokeObjectURL(downloadUrl)
+      setDownloadUrl(null)
+    }
+    setFile(null)
+    setTotalPages(0)
+    setIsComplete(false)
+    setError(null)
+  }
+
   const splitPdf = async () => {
     if (!file) {
-      setError("Please upload a PDF file first.")
+      setError("Please deposit a PDF manuscript first.")
       return
     }
 
@@ -83,201 +91,210 @@ export default function PdfSplitter() {
     setError(null)
 
     try {
-      if (splitMethod === "all") {
-        // Split into individual pages
+      if (splitMethod === "range") {
+        if (!pageRange.trim()) {
+          throw new Error("Please specify a page range (e.g. 2-7 or 8-11).")
+        }
+
+        const pageNumbers = parsePageRanges(pageRange, totalPages)
+        if (pageNumbers.length === 0) {
+          throw new Error(`The specified range '${pageRange}' contains no pages within the 1–${totalPages} boundary.`)
+        }
+
+        const extractedBytes = await extractPages(file, pageNumbers)
+        const pdfBlob = uint8ArrayToBlob(extractedBytes)
+
+        if (downloadUrl) {
+          URL.revokeObjectURL(downloadUrl)
+        }
+        const url = createDownloadURL(pdfBlob)
+        setDownloadUrl(url)
+        setCompletedSummary(`Pages ${pageNumbers.join(", ")} extracted (${pageNumbers.length} pages)`)
+        setIsComplete(true)
+      } else if (splitMethod === "all") {
         const ranges = Array.from({ length: totalPages }, (_, i) => ({
           start: i + 1,
           end: i + 1,
         }))
-
         const splitPdfs = await splitPDF(file, ranges)
-
-        // Create a zip file containing all the split PDFs
-        // For simplicity, we'll just provide the first page as a download
-        // In a real implementation, you would use JSZip to create a zip file
         const firstPageBlob = uint8ArrayToBlob(splitPdfs[0])
+
+        if (downloadUrl) {
+          URL.revokeObjectURL(downloadUrl)
+        }
         const url = createDownloadURL(firstPageBlob)
         setDownloadUrl(url)
-
-        setIsComplete(true)
-      } else if (splitMethod === "range") {
-        if (!pageRange.trim()) {
-          setError("Please enter a valid page range.")
-          setIsProcessing(false)
-          return
-        }
-
-        const pageNumbers = parsePageRanges(pageRange, totalPages)
-
-        if (pageNumbers.length === 0) {
-          setError("Please enter a valid page range.")
-          setIsProcessing(false)
-          return
-        }
-
-        const extractedPdfBytes = await extractPages(file, pageNumbers)
-        const pdfBlob = uint8ArrayToBlob(extractedPdfBytes)
-        const url = createDownloadURL(pdfBlob)
-        setDownloadUrl(url)
-
+        setCompletedSummary(`All ${totalPages} pages separated (Page 1 compiled for download)`)
         setIsComplete(true)
       } else if (splitMethod === "custom") {
-        // For custom split, we would need more UI to define split points
-        // For now, we'll just split in half as an example
-        const halfPage = Math.ceil(totalPages / 2)
-
+        const half = Math.ceil(totalPages / 2)
         const ranges = [
-          { start: 1, end: halfPage },
-          { start: halfPage + 1, end: totalPages },
+          { start: 1, end: half },
+          { start: half + 1, end: totalPages },
         ]
-
         const splitPdfs = await splitPDF(file, ranges)
-
-        // Just provide the first part as a download for simplicity
         const firstPartBlob = uint8ArrayToBlob(splitPdfs[0])
+
+        if (downloadUrl) {
+          URL.revokeObjectURL(downloadUrl)
+        }
         const url = createDownloadURL(firstPartBlob)
         setDownloadUrl(url)
-
+        setCompletedSummary(`Partitioned at leaf ${half} (Gathering 1: pages 1–${half})`)
         setIsComplete(true)
       }
     } catch (err) {
       console.error("Error splitting PDF:", err)
-      setError(err instanceof Error ? err.message : "An error occurred while splitting the PDF")
+      setError(err instanceof Error ? err.message : "An error occurred during folio partitioning.")
     } finally {
       setIsProcessing(false)
     }
   }
 
-  const downloadSplitPdfs = () => {
-    if (downloadUrl) {
-      const filename =
-        splitMethod === "all" ? "page_1.pdf" : splitMethod === "range" ? "extracted_pages.pdf" : "split_part1.pdf"
-
-      downloadFile(downloadUrl, filename)
+  const downloadSplitResult = () => {
+    if (downloadUrl && file) {
+      const sanitizedName = file.name.replace(/\.[^/.]+$/, "")
+      const rangeTag = splitMethod === "range" ? `_pages_${pageRange.replace(/[\s,]+/g, "_")}` : "_split"
+      downloadFile(downloadUrl, `${sanitizedName}${rangeTag}.pdf`)
     }
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Split PDF</h2>
-        <p className="text-muted-foreground">Extract pages from your PDF or split it into multiple documents.</p>
+        <div className="editorial-tag text-muted-foreground mb-1">Instrument II · Folio Extraction</div>
+        <h2 className="text-xl md:text-2xl font-serif font-medium text-foreground">Folio Partition (Split)</h2>
+        <p className="text-xs md:text-sm text-muted-foreground font-sans mt-1">
+          Extract specific gatherings, pages, or chapters. The source manuscript remains active in memory for repeated extractions.
+        </p>
       </div>
 
-      <PdfUploader onFilesSelected={handleFileSelected} multiple={false} />
+      {!file && <PdfUploader onFilesSelected={handleFileSelected} multiple={false} />}
+
+      {file && (
+        <div className="p-4 bg-muted/40 border border-border rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-serif font-medium text-foreground">{file.name}</div>
+            <div className="text-[0.7rem] text-muted-foreground font-mono">
+              Total Leaves: {totalPages} pages · {(file.size / 1024 / 1024).toFixed(2)} MB · Ready for repeated operations
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={resetFile}
+            className="text-xs font-sans uppercase tracking-wider py-1 px-2.5 border border-border bg-background hover:bg-muted rounded-sm transition-colors text-foreground self-start sm:self-auto"
+          >
+            Deposit Different File
+          </button>
+        </div>
+      )}
 
       {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="rounded-sm">
+          <AlertDescription className="text-xs">{error}</AlertDescription>
         </Alert>
       )}
 
       {file && totalPages > 0 && (
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-medium mb-2">Split Options</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Your PDF has {totalPages} pages. Choose how you want to split it.
-            </p>
+        <div className="space-y-6 pt-2">
+          <div className="space-y-4">
+            <h3 className="text-sm font-serif font-medium text-foreground">Partition Methodology</h3>
 
             <RadioGroup
               value={splitMethod}
-              onValueChange={(value: "all" | "range" | "custom") => setSplitMethod(value)}
+              onValueChange={(val: "all" | "range" | "custom") => {
+                setSplitMethod(val)
+                setError(null)
+              }}
+              className="space-y-3"
             >
-              <div className="flex items-start space-x-2 mb-4">
-                <RadioGroupItem value="all" id="all" />
-                <div>
-                  <Label htmlFor="all" className="font-medium">
-                    Extract all pages
+              <div className="flex items-start space-x-3 p-3 border border-border bg-card rounded-sm">
+                <RadioGroupItem value="range" id="split-range" className="mt-1" />
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="split-range" className="font-serif text-sm font-medium cursor-pointer">
+                    Extract Specific Leaf Range (Recommended)
                   </Label>
-                  <p className="text-sm text-muted-foreground">Create a separate PDF for each page</p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-2 mb-4">
-                <RadioGroupItem value="range" id="range" />
-                <div className="flex-1">
-                  <Label htmlFor="range" className="font-medium">
-                    Extract page range
-                  </Label>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Create a PDF with specific pages (e.g., 1-3, 5, 7-9)
+                  <p className="text-xs text-muted-foreground font-sans">
+                    Specify exact pages to assemble into a new document (e.g. &ldquo;2-7&rdquo; or &ldquo;8-11&rdquo; or &ldquo;1, 3, 5-8&rdquo;).
                   </p>
-                  <Input
-                    type="text"
-                    placeholder="e.g., 1-3, 5, 7-9"
-                    value={pageRange}
-                    onChange={(e) => setPageRange(e.target.value)}
-                    disabled={splitMethod !== "range"}
-                    className="max-w-xs"
-                  />
+                  {splitMethod === "range" && (
+                    <div className="pt-2 flex flex-wrap items-center gap-3">
+                      <Input
+                        type="text"
+                        placeholder={`e.g. 2-7 (Max: ${totalPages})`}
+                        value={pageRange}
+                        onChange={(e) => {
+                          setPageRange(e.target.value)
+                          setError(null)
+                        }}
+                        className="max-w-xs text-sm rounded-sm bg-background border-border"
+                      />
+                      <span className="text-[0.7rem] text-muted-foreground font-mono">
+                        Valid leaves: 1 to {totalPages}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="flex items-start space-x-2">
-                <RadioGroupItem value="custom" id="custom" />
+              <div className="flex items-start space-x-3 p-3 border border-border bg-card rounded-sm">
+                <RadioGroupItem value="all" id="split-all" className="mt-1" />
                 <div>
-                  <Label htmlFor="custom" className="font-medium">
-                    Custom split
+                  <Label htmlFor="split-all" className="font-serif text-sm font-medium cursor-pointer">
+                    Individual Leaf Extraction (All Pages)
                   </Label>
-                  <p className="text-sm text-muted-foreground">Split into multiple PDFs at specific page numbers</p>
+                  <p className="text-xs text-muted-foreground font-sans">
+                    Partition each leaf of the manuscript into its own separate folio.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-3 p-3 border border-border bg-card rounded-sm">
+                <RadioGroupItem value="custom" id="split-custom" className="mt-1" />
+                <div>
+                  <Label htmlFor="split-custom" className="font-serif text-sm font-medium cursor-pointer">
+                    Halve Volume at Midpoint
+                  </Label>
+                  <p className="text-xs text-muted-foreground font-sans">
+                    Divide the manuscript into two equal halves (Pages 1–{Math.ceil(totalPages / 2)} and {Math.ceil(totalPages / 2) + 1}–{totalPages}).
+                  </p>
                 </div>
               </div>
             </RadioGroup>
           </div>
 
-          {isComplete ? (
-            <div className="mt-6">
-              <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900 mb-4">
-                <AlertDescription className="text-green-800 dark:text-green-300 flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Your PDF has been successfully split!
-                </AlertDescription>
-              </Alert>
-
-              <Button className="w-full" onClick={downloadSplitPdfs}>
-                <FileOutput className="mr-2 h-4 w-4" />
-                Download Split PDF{splitMethod === "all" ? "s" : ""}
-              </Button>
-            </div>
-          ) : (
-            <Button
-              className="w-full"
-              onClick={splitPdf}
-              disabled={isProcessing || (splitMethod === "range" && !pageRange)}
-            >
-              {isProcessing ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
+          {/* Action and Download Area */}
+          <div className="pt-2 space-y-4">
+            {isComplete && downloadUrl && (
+              <div className="p-4 bg-muted/50 border border-foreground/20 rounded-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-serif font-medium text-foreground">
+                    ✓ Partition Complete: {completedSummary}
+                  </div>
+                  <span className="text-[0.7rem] font-mono text-muted-foreground">Original file remains loaded</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    onClick={downloadSplitResult}
+                    className="px-6 py-2 bg-foreground text-background text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90"
                   >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                "Split PDF"
-              )}
+                    Download Partitioned PDF
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Or adjust page range above and click &ldquo;Execute Partition&rdquo; again.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={splitPdf}
+              disabled={isProcessing || (splitMethod === "range" && !pageRange.trim())}
+              className="w-full py-2.5 bg-foreground text-background text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90 transition-opacity"
+            >
+              {isProcessing ? "Partitioning Folios..." : isComplete ? "Execute New Partition From Same PDF" : "Execute Folio Partition"}
             </Button>
-          )}
+          </div>
         </div>
       )}
     </div>

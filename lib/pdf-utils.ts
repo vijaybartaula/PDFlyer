@@ -16,10 +16,10 @@ export async function mergePDFs(pdfFiles: File[]): Promise<Uint8Array> {
       })
     }
 
-    return await mergedPdf.save()
+    return await mergedPdf.save({ useObjectStreams: true })
   } catch (error) {
     console.error("Error merging PDFs:", error)
-    throw new Error("Failed to merge PDF files")
+    throw new Error("Failed to merge PDF files. Please verify that files are valid, unencrypted PDFs.")
   }
 }
 
@@ -36,7 +36,7 @@ export async function splitPDF(pdfFile: File, ranges: { start: number; end: numb
 
     for (const range of ranges) {
       const newPdf = await PDFDocument.create()
-      const pageIndices = []
+      const pageIndices: number[] = []
 
       // Adjust for 0-based indexing
       const start = Math.max(0, range.start - 1)
@@ -46,18 +46,19 @@ export async function splitPDF(pdfFile: File, ranges: { start: number; end: numb
         pageIndices.push(i)
       }
 
-      const copiedPages = await newPdf.copyPages(pdf, pageIndices)
-      copiedPages.forEach((page) => {
-        newPdf.addPage(page)
-      })
-
-      splitPdfs.push(await newPdf.save())
+      if (pageIndices.length > 0) {
+        const copiedPages = await newPdf.copyPages(pdf, pageIndices)
+        copiedPages.forEach((page) => {
+          newPdf.addPage(page)
+        })
+        splitPdfs.push(await newPdf.save({ useObjectStreams: true }))
+      }
     }
 
     return splitPdfs
   } catch (error) {
     console.error("Error splitting PDF:", error)
-    throw new Error("Failed to split PDF file")
+    throw new Error("Failed to split PDF file.")
   }
 }
 
@@ -68,26 +69,32 @@ export async function extractPages(pdfFile: File, pageNumbers: number[]): Promis
   try {
     const fileBuffer = await pdfFile.arrayBuffer()
     const pdf = await PDFDocument.load(fileBuffer)
+    const totalPages = pdf.getPageCount()
     const newPdf = await PDFDocument.create()
 
-    // Adjust for 0-based indexing
-    const pageIndices = pageNumbers.map((num) => num - 1)
+    // Adjust for 0-based indexing and filter within bounds
+    const pageIndices = pageNumbers
+      .map((num) => num - 1)
+      .filter((idx) => idx >= 0 && idx < totalPages)
+
+    if (pageIndices.length === 0) {
+      throw new Error("No valid page numbers selected for extraction.")
+    }
 
     const copiedPages = await newPdf.copyPages(pdf, pageIndices)
     copiedPages.forEach((page) => {
       newPdf.addPage(page)
     })
 
-    return await newPdf.save()
+    return await newPdf.save({ useObjectStreams: true })
   } catch (error) {
     console.error("Error extracting pages:", error)
-    throw new Error("Failed to extract pages from PDF")
+    throw new Error(error instanceof Error ? error.message : "Failed to extract pages from PDF")
   }
 }
 
 /**
- * Compresses a PDF file (basic implementation)
- * Note: Full compression would require more advanced techniques
+ * Compresses a PDF file by stripping unneeded metadata and applying stream compression
  */
 export async function compressPDF(pdfFile: File, quality: number): Promise<Uint8Array> {
   try {
@@ -97,16 +104,13 @@ export async function compressPDF(pdfFile: File, quality: number): Promise<Uint8
       updateMetadata: false,
     })
 
-    // Basic compression by removing metadata
+    // Clean redundant metadata
     pdf.setTitle("")
     pdf.setAuthor("")
     pdf.setSubject("")
     pdf.setKeywords([])
-    pdf.setProducer("")
-    pdf.setCreator("")
-
-    // More advanced compression would require image processing
-    // which is beyond the scope of pdf-lib alone
+    pdf.setProducer("PDFlyer Digital Atelier")
+    pdf.setCreator("PDFlyer Volume Compressor")
 
     return await pdf.save({
       useObjectStreams: true,
@@ -131,61 +135,72 @@ export async function addTextWatermark(
     const fileBuffer = await pdfFile.arrayBuffer()
     const pdf = await PDFDocument.load(fileBuffer)
     const pages = pdf.getPages()
-    const font = await pdf.embedFont(StandardFonts.Helvetica)
+    const font = await pdf.embedFont(StandardFonts.HelveticaBold)
 
-    const color = rgb(0.5, 0.5, 0.5).setAlpha(opacity / 100)
+    const normalizedOpacity = Math.max(0.05, Math.min(1, opacity / 100))
+    const textColor = rgb(0.35, 0.35, 0.35)
 
     for (const page of pages) {
       const { width, height } = page.getSize()
-      const fontSize = Math.min(width, height) * 0.05
+      const fontSize = Math.max(16, Math.min(width, height) * 0.055)
       const textWidth = font.widthOfTextAtSize(text, fontSize)
       const textHeight = font.heightAtSize(fontSize)
 
-      let x = 0
-      let y = 0
+      let x = (width - textWidth) / 2
+      let y = (height - textHeight) / 2
 
       switch (position) {
         case "center":
-          x = (width - textWidth) / 2
-          y = (height - textHeight) / 2
-          page.drawText(text, { x, y, font, size: fontSize, color, opacity: opacity / 100, rotate: degrees(45) })
+          // Center watermark rotated at 45 degrees
+          x = (width - textWidth * 0.7) / 2
+          y = (height - textHeight * 0.7) / 2
+          page.drawText(text, {
+            x,
+            y,
+            font,
+            size: fontSize,
+            color: textColor,
+            opacity: normalizedOpacity,
+            rotate: degrees(45),
+          })
           break
 
         case "top-left":
-          x = 20
-          y = height - 20 - textHeight
-          page.drawText(text, { x, y, font, size: fontSize, color })
+          x = 24
+          y = height - textHeight - 24
+          page.drawText(text, { x, y, font, size: fontSize * 0.7, color: textColor, opacity: normalizedOpacity })
           break
 
         case "top-right":
-          x = width - textWidth - 20
-          y = height - 20 - textHeight
-          page.drawText(text, { x, y, font, size: fontSize, color })
+          x = width - textWidth * 0.7 - 24
+          y = height - textHeight - 24
+          page.drawText(text, { x, y, font, size: fontSize * 0.7, color: textColor, opacity: normalizedOpacity })
           break
 
         case "bottom-left":
-          x = 20
-          y = 20
-          page.drawText(text, { x, y, font, size: fontSize, color })
+          x = 24
+          y = 24
+          page.drawText(text, { x, y, font, size: fontSize * 0.7, color: textColor, opacity: normalizedOpacity })
           break
 
         case "bottom-right":
-          x = width - textWidth - 20
-          y = 20
-          page.drawText(text, { x, y, font, size: fontSize, color })
+          x = width - textWidth * 0.7 - 24
+          y = 24
+          page.drawText(text, { x, y, font, size: fontSize * 0.7, color: textColor, opacity: normalizedOpacity })
           break
 
         case "tile":
-          const tileSize = Math.min(width, height) * 0.2
-          for (let tileX = 0; tileX < width; tileX += tileSize) {
-            for (let tileY = 0; tileY < height; tileY += tileSize) {
+          const tileSizeX = Math.max(120, width * 0.35)
+          const tileSizeY = Math.max(100, height * 0.3)
+          for (let tileX = 20; tileX < width; tileX += tileSizeX) {
+            for (let tileY = 20; tileY < height; tileY += tileSizeY) {
               page.drawText(text, {
                 x: tileX,
                 y: tileY,
                 font,
-                size: fontSize / 2,
-                color,
-                opacity: opacity / 100,
+                size: fontSize * 0.5,
+                color: textColor,
+                opacity: normalizedOpacity * 0.75,
                 rotate: degrees(45),
               })
             }
@@ -194,10 +209,91 @@ export async function addTextWatermark(
       }
     }
 
-    return await pdf.save()
+    return await pdf.save({ useObjectStreams: true })
   } catch (error) {
-    console.error("Error adding watermark:", error)
-    throw new Error("Failed to add watermark to PDF")
+    console.error("Error adding text watermark:", error)
+    throw new Error(error instanceof Error ? error.message : "Failed to add text watermark to PDF")
+  }
+}
+
+/**
+ * Adds an image watermark to a PDF
+ */
+export async function addImageWatermark(
+  pdfFile: File,
+  imageFile: File,
+  opacity: number,
+  position: "center" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "tile",
+): Promise<Uint8Array> {
+  try {
+    const fileBuffer = await pdfFile.arrayBuffer()
+    const pdf = await PDFDocument.load(fileBuffer)
+    const imageBuffer = await imageFile.arrayBuffer()
+
+    const isPng = imageFile.type === "image/png" || imageFile.name.toLowerCase().endsWith(".png")
+    const image = isPng
+      ? await pdf.embedPng(imageBuffer)
+      : await pdf.embedJpg(imageBuffer)
+
+    const pages = pdf.getPages()
+    const alpha = Math.max(0.05, Math.min(1, opacity / 100))
+
+    for (const page of pages) {
+      const { width, height } = page.getSize()
+      const maxDim = Math.min(width, height) * 0.35
+      const scale = Math.min(maxDim / image.width, maxDim / image.height, 1)
+      const imgWidth = image.width * scale
+      const imgHeight = image.height * scale
+
+      let x = (width - imgWidth) / 2
+      let y = (height - imgHeight) / 2
+
+      switch (position) {
+        case "center":
+          page.drawImage(image, { x, y, width: imgWidth, height: imgHeight, opacity: alpha })
+          break
+        case "top-left":
+          x = 24
+          y = height - imgHeight - 24
+          page.drawImage(image, { x, y, width: imgWidth, height: imgHeight, opacity: alpha })
+          break
+        case "top-right":
+          x = width - imgWidth - 24
+          y = height - imgHeight - 24
+          page.drawImage(image, { x, y, width: imgWidth, height: imgHeight, opacity: alpha })
+          break
+        case "bottom-left":
+          x = 24
+          y = 24
+          page.drawImage(image, { x, y, width: imgWidth, height: imgHeight, opacity: alpha })
+          break
+        case "bottom-right":
+          x = width - imgWidth - 24
+          y = 24
+          page.drawImage(image, { x, y, width: imgWidth, height: imgHeight, opacity: alpha })
+          break
+        case "tile":
+          const stepX = imgWidth * 1.6
+          const stepY = imgHeight * 1.6
+          for (let tx = 20; tx < width; tx += stepX) {
+            for (let ty = 20; ty < height; ty += stepY) {
+              page.drawImage(image, {
+                x: tx,
+                y: ty,
+                width: imgWidth * 0.6,
+                height: imgHeight * 0.6,
+                opacity: alpha * 0.8,
+              })
+            }
+          }
+          break
+      }
+    }
+
+    return await pdf.save({ useObjectStreams: true })
+  } catch (error) {
+    console.error("Error adding image watermark:", error)
+    throw new Error(error instanceof Error ? error.message : "Failed to add image watermark to PDF")
   }
 }
 
@@ -219,7 +315,6 @@ export async function rotatePDF(
         page.setRotation(degrees(rotation))
       })
     } else {
-      // Adjust for 0-based indexing
       pageNumbers.forEach((pageNum) => {
         const index = pageNum - 1
         if (index >= 0 && index < pages.length) {
@@ -228,7 +323,7 @@ export async function rotatePDF(
       })
     }
 
-    return await pdf.save()
+    return await pdf.save({ useObjectStreams: true })
   } catch (error) {
     console.error("Error rotating PDF:", error)
     throw new Error("Failed to rotate PDF pages")
@@ -239,7 +334,9 @@ export async function rotatePDF(
  * Converts a Uint8Array to a Blob with the specified MIME type
  */
 export function uint8ArrayToBlob(data: Uint8Array, mimeType = "application/pdf"): Blob {
-  return new Blob([data], { type: mimeType })
+  // Copy into a fresh ArrayBuffer-backed view: `BlobPart` does not accept the
+  // `ArrayBufferLike` (possibly shared) buffer that `Uint8Array` may wrap.
+  return new Blob([new Uint8Array(data)], { type: mimeType })
 }
 
 /**
@@ -259,9 +356,6 @@ export function downloadFile(url: string, filename: string): void {
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-
-  // Clean up the URL object after a delay
-  setTimeout(() => URL.revokeObjectURL(url), 100)
 }
 
 /**
@@ -278,9 +372,11 @@ export function parsePageRanges(rangeStr: string, totalPages: number): number[] 
 
   for (const range of ranges) {
     if (range.includes("-")) {
-      const [start, end] = range.split("-").map(Number)
+      const [startStr, endStr] = range.split("-").map((s) => s.trim())
+      const start = Number(startStr)
+      const end = Number(endStr)
       if (!isNaN(start) && !isNaN(end) && start <= end) {
-        for (let i = start; i <= Math.min(end, totalPages); i++) {
+        for (let i = Math.max(1, start); i <= Math.min(end, totalPages); i++) {
           pageNumbers.push(i)
         }
       }
@@ -292,7 +388,6 @@ export function parsePageRanges(rangeStr: string, totalPages: number): number[] 
     }
   }
 
-  // Remove duplicates and sort
   return [...new Set(pageNumbers)].sort((a, b) => a - b)
 }
 
@@ -302,10 +397,10 @@ export function parsePageRanges(rangeStr: string, totalPages: number): number[] 
 export async function getPdfPageCount(pdfFile: File): Promise<number> {
   try {
     const fileBuffer = await pdfFile.arrayBuffer()
-    const pdf = await PDFDocument.load(fileBuffer)
+    const pdf = await PDFDocument.load(fileBuffer, { ignoreEncryption: true })
     return pdf.getPageCount()
   } catch (error) {
     console.error("Error getting PDF page count:", error)
-    throw new Error("Failed to get PDF page count")
+    throw new Error("Failed to read PDF page count")
   }
 }

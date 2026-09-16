@@ -1,53 +1,99 @@
 import SiteLayout from "@/components/site-layout"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Merge, Scissors, FileArchiveIcon as Compress, FileOutput, Stamp, RotateCw } from "lucide-react"
+import ToolsDirectory from "@/components/tools-directory"
+import { PRODUCTION_APP_URL } from "@/lib/constants"
 
 export default function Home() {
   return (
     <SiteLayout>
-      {/* Hero Section with improved visuals */}
-      <section className="relative w-full min-h-[90vh] flex items-center">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-background z-0"></div>
-
-        {/* Content */}
-        <div className="container relative z-10 px-4 md:px-6 py-12 md:py-24">
-          <div className="grid gap-8 lg:grid-cols-2 lg:gap-12 items-center">
-            <div className="flex flex-col justify-center space-y-6">
-              <div className="space-y-4">
-                <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl/none">
-                  Your Ultimate PDF Toolbox
-                </h1>
-                <p className="max-w-[600px] text-xl text-muted-foreground">
-                  Effortlessly merge, split, compress, convert, and manipulate your PDFs with the power of PDFlyer.
-                </p>
+      {/* Hero Section — Literary Frontispiece */}
+      <section className="relative w-full border-b border-border bg-background pt-16 pb-20 md:pt-24 md:pb-28">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="grid gap-12 lg:grid-cols-12 items-center">
+            {/* Lead Typography */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="inline-flex items-center gap-2 border border-border bg-card px-3 py-1 rounded-sm text-[0.7rem] uppercase tracking-widest text-muted-foreground font-sans font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-foreground/60" />
+                The Digital Bindery & Atelier · Established 2024
               </div>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="text-lg px-8" asChild>
-                  <Link href="/tools">Get Started</Link>
-                </Button>
-                <Button size="lg" variant="outline" className="text-lg" asChild>
-                  <Link href="/about">Learn More</Link>
-                </Button>
+
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-normal tracking-tight text-foreground leading-[1.12]">
+                Refined instruments for the assembly, division, and preservation of portable documents.
+              </h1>
+
+              <p className="text-base sm:text-lg text-muted-foreground font-sans leading-relaxed max-w-2xl">
+                Crafted for scholars, archivists, and deliberate professionals. Every operation executes strictly within the
+                sanctuary of your browser memory, free from remote inspection, tracking, or arbitrary confinement.
+              </p>
+
+              <div className="pt-2 flex flex-wrap items-center gap-4">
+                <Link
+                  href="/tools"
+                  className="px-6 py-2.5 bg-foreground text-background font-sans text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90 transition-opacity"
+                >
+                  Enter the Atelier
+                </Link>
+                <a
+                  href="#instruments-directory"
+                  className="px-6 py-2.5 border border-border bg-card text-foreground font-sans text-xs uppercase tracking-wider font-medium rounded-sm hover:bg-muted/70 transition-colors"
+                >
+                  Examine Instruments
+                </a>
+              </div>
+
+              <div className="pt-4 text-xs font-serif italic text-muted-foreground">
+                Canonical location:{" "}
+                <span className="font-mono not-italic text-foreground/80">{PRODUCTION_APP_URL}</span>
               </div>
             </div>
 
-            <div className="relative h-[400px] lg:h-[500px]">
-              {/* Decorative elements */}
-              <div className="absolute top-1/4 right-1/4 w-64 h-64 bg-primary/20 rounded-full filter blur-3xl"></div>
-              <div className="absolute bottom-1/4 left-1/4 w-48 h-48 bg-blue-500/20 rounded-full filter blur-3xl"></div>
+            {/* Classical Workshop Plate (Pure Vector Architectural Graphic — No Stock Photos or Blurs) */}
+            <div className="lg:col-span-5">
+              <div className="relative p-6 sm:p-8 bg-card border border-border rounded-sm deckle-border">
+                {/* Architectural Margin Details */}
+                <div className="flex items-center justify-between border-b border-border/80 pb-3 mb-6">
+                  <span className="editorial-tag text-[0.65rem] text-muted-foreground">Plate No. 01 · Workshop Scheme</span>
+                  <span className="text-[0.65rem] font-mono text-muted-foreground">FIG. ARCH-24</span>
+                </div>
 
-              {/* Main image with floating effect */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="relative w-full max-w-md animate-float">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-2xl transform rotate-2"></div>
-                  <div className="absolute inset-0 bg-white dark:bg-gray-950 rounded-lg shadow-xl transform -rotate-2 flex items-center justify-center">
-                    <img
-                      src="https://images.unsplash.com/photo-1623276527153-fa38c1616b05?q=80&w=2069&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-                      alt="PDF document with annotations"
-                      className="w-full h-full object-cover rounded-lg"
-                    />
+                {/* Vector Diagram of Page Leaf Collation */}
+                <div className="space-y-4 py-2">
+                  <div className="flex items-center justify-center py-6">
+                    <svg className="w-full max-w-[260px] h-auto text-foreground/85" viewBox="0 0 200 160" fill="none" stroke="currentColor">
+                      {/* Leaf 3 (Background) */}
+                      <rect x="50" y="20" width="100" height="120" rx="2" strokeWidth="1" strokeDasharray="3 2" fill="none" opacity="0.4" />
+                      {/* Leaf 2 (Middle) */}
+                      <rect x="40" y="28" width="100" height="120" rx="2" strokeWidth="1" fill="none" opacity="0.6" />
+                      {/* Leaf 1 (Foreground) */}
+                      <rect x="30" y="36" width="100" height="120" rx="2" strokeWidth="1.25" fill="currentColor" fillOpacity="0.03" />
+                      {/* Typographic ruled lines on page */}
+                      <line x1="42" y1="52" x2="118" y2="52" strokeWidth="1" />
+                      <line x1="42" y1="62" x2="110" y2="62" strokeWidth="0.75" opacity="0.7" />
+                      <line x1="42" y1="72" x2="114" y2="72" strokeWidth="0.75" opacity="0.7" />
+                      <line x1="42" y1="82" x2="98" y2="82" strokeWidth="0.75" opacity="0.7" />
+                      {/* Measurement caliper marks */}
+                      <path d="M22 36v120m-4-120h8m-8 120h8" strokeWidth="1" opacity="0.5" />
+                      <path d="M140 148h20m-20-4v8m20-8v8" strokeWidth="1" opacity="0.5" />
+                      {/* Classical Press Seal */}
+                      <circle cx="106" cy="126" r="14" strokeWidth="1" strokeDasharray="2 1" />
+                      <circle cx="106" cy="126" r="10" strokeWidth="0.75" />
+                      <text x="106" y="130" fontSize="10" textAnchor="middle" fill="currentColor" fontFamily="serif">P</text>
+                    </svg>
+                  </div>
+
+                  <div className="border-t border-border/80 pt-4 space-y-1.5 text-xs text-muted-foreground font-sans">
+                    <div className="flex justify-between">
+                      <span className="text-foreground font-medium">Standard Operation:</span>
+                      <span>Client In-Memory Buffer</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-foreground font-medium">Network Transmission:</span>
+                      <span className="text-foreground font-medium">None (Zero Outbound)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-foreground font-medium">Document Sanctity:</span>
+                      <span>100% Inviolable</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -56,138 +102,100 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-16 md:py-24 bg-muted/50">
-        <div className="container px-4 md:px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">Powerful PDF Tools</h2>
-            <p className="mt-4 text-xl text-muted-foreground max-w-3xl mx-auto">
-              Everything you need to work with PDFs in one place. Fast, easy, and powerful.
+      {/* Dedicated Reusable Tools Section with Production Endpoints */}
+      <ToolsDirectory />
+
+      {/* Three Architectural Tenets (Replacing generic checkmark lists or fake features) */}
+      <section className="w-full py-16 md:py-24 border-t border-border bg-card/40">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="max-w-2xl mb-14">
+            <div className="editorial-tag text-muted-foreground mb-2">Our Foundation</div>
+            <h2 className="text-2xl md:text-3xl font-serif font-normal tracking-tight text-foreground mb-3">
+              Principles of Modern Document Stewardship
+            </h2>
+            <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+              We reject the prevailing assumption that everyday utility demands surveillance, complex accounts, or bloated subscriptions.
             </p>
+            <div className="w-16 h-[1px] bg-border mt-4" />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Feature Cards */}
-            {[
-              {
-                icon: <Merge className="h-10 w-10" />,
-                title: "Merge PDFs",
-                description: "Combine multiple PDF documents into a single file with ease.",
-                href: "/tools/merge",
-              },
-              {
-                icon: <Scissors className="h-10 w-10" />,
-                title: "Split PDFs",
-                description: "Extract specific pages or split large documents into smaller files.",
-                href: "/tools/split",
-              },
-              {
-                icon: <Compress className="h-10 w-10" />,
-                title: "Compress PDFs",
-                description: "Reduce file size while maintaining quality for easier sharing.",
-                href: "/tools/compress",
-              },
-              {
-                icon: <FileOutput className="h-10 w-10" />,
-                title: "Convert PDFs",
-                description: "Transform PDFs to Word, Excel, images, or other formats.",
-                href: "/tools/convert",
-              },
-              {
-                icon: <Stamp className="h-10 w-10" />,
-                title: "Add Watermarks",
-                description: "Protect your documents with custom text or image watermarks.",
-                href: "/tools/watermark",
-              },
-              {
-                icon: <RotateCw className="h-10 w-10" />,
-                title: "Rotate Pages",
-                description: "Adjust page orientation to correct sideways or upside-down content.",
-                href: "/tools/rotate",
-              },
-            ].map((feature, index) => (
-              <div
-                key={index}
-                className="bg-background rounded-xl shadow-sm hover:shadow-md transition-all p-6 flex flex-col h-full"
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Tenet 1 */}
+            <div className="p-6 border border-border bg-card rounded-sm flex flex-col justify-between">
+              <div>
+                <div className="editorial-tag text-[0.65rem] text-muted-foreground mb-2">Tenet I</div>
+                <h3 className="text-xl font-serif font-medium text-foreground mb-3">
+                  Computational Sovereignty
+                </h3>
+                <p className="text-xs md:text-sm text-muted-foreground font-sans leading-relaxed">
+                  Your files remain housed exclusively upon your hardware. Merging, excising, and stamping occur via browser assembly pipelines without uploading an unencrypted byte to third-party machines.
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-border/60 text-xs text-muted-foreground italic font-serif">
+                Local memory execution
+              </div>
+            </div>
+
+            {/* Tenet 2 */}
+            <div className="p-6 border border-border bg-card rounded-sm flex flex-col justify-between">
+              <div>
+                <div className="editorial-tag text-[0.65rem] text-muted-foreground mb-2">Tenet II</div>
+                <h3 className="text-xl font-serif font-medium text-foreground mb-3">
+                  Typographical Integrity
+                </h3>
+                <p className="text-xs md:text-sm text-muted-foreground font-sans leading-relaxed">
+                  Every page boundary, font definition, and structural vector is treated with binder precision. Leaves undergo manipulation without loss of formatting or degradation of embedded typography.
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-border/60 text-xs text-muted-foreground italic font-serif">
+                Exact geometry preservation
+              </div>
+            </div>
+
+            {/* Tenet 3 */}
+            <div className="p-6 border border-border bg-card rounded-sm flex flex-col justify-between">
+              <div>
+                <div className="editorial-tag text-[0.65rem] text-muted-foreground mb-2">Tenet III</div>
+                <h3 className="text-xl font-serif font-medium text-foreground mb-3">
+                  Uncompromised Accessibility
+                </h3>
+                <p className="text-xs md:text-sm text-muted-foreground font-sans leading-relaxed">
+                  No coercive registrations, artificial credit caps, or opaque barriers. Every fundamental instrument is accessible directly upon arrival, functioning reliably across modern portable and desktop screens.
+                </p>
+              </div>
+              <div className="mt-6 pt-4 border-t border-border/60 text-xs text-muted-foreground italic font-serif">
+                Universal public utility
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Literary Invitation to the Desk (No fake "10,000+ users" or phony quotes) */}
+      <section className="w-full py-16 md:py-20 border-t border-border bg-background">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="max-w-3xl mx-auto text-center space-y-6">
+            <div className="editorial-tag text-muted-foreground">The Workbench Awaits</div>
+            <h2 className="text-3xl md:text-4xl font-serif font-normal tracking-tight text-foreground">
+              Bring Order to Your Digital Folios
+            </h2>
+            <p className="text-sm md:text-base text-muted-foreground font-sans leading-relaxed">
+              Select an instrument from our catalog to commence your assembly, or review our legal covenants detailing the mathematical guarantees of document privacy.
+            </p>
+            <div className="pt-2 flex flex-wrap justify-center gap-4">
+              <Link
+                href="/tools"
+                className="px-6 py-2.5 bg-foreground text-background font-sans text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90 transition-opacity"
               >
-                <div className="p-3 w-fit rounded-lg bg-primary/10 mb-4">{feature.icon}</div>
-                <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
-                <p className="text-muted-foreground mb-4 flex-grow">{feature.description}</p>
-                <Button variant="ghost" size="sm" className="gap-1 mt-auto self-start" asChild>
-                  <Link href={feature.href}>
-                    Try Now <span className="ml-1">→</span>
-                  </Link>
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="py-16 md:py-24">
-        <div className="container px-4 md:px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-6">Why Choose PDFlyer?</h2>
-              <ul className="space-y-6">
-                {[
-                  {
-                    title: "Privacy First",
-                    description: "Your files are processed locally and never stored on our servers.",
-                  },
-                  {
-                    title: "Lightning Fast",
-                    description: "Process your PDFs in seconds with our optimized algorithms.",
-                  },
-                  {
-                    title: "No Installation",
-                    description: "Works directly in your browser - no downloads or installations required.",
-                  },
-                ].map((benefit, index) => (
-                  <li key={index} className="flex items-start gap-4">
-                    <div className="flex-shrink-0 rounded-full bg-primary/10 p-2">
-                      <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-medium">{benefit.title}</h3>
-                      <p className="text-muted-foreground">{benefit.description}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <Button className="mt-8" size="lg" asChild>
-                <Link href="/tools">Try It Now</Link>
-              </Button>
+                Open the Atelier
+              </Link>
+              <Link
+                href="/privacy"
+                className="px-6 py-2.5 border border-border bg-card text-foreground font-sans text-xs uppercase tracking-wider font-medium rounded-sm hover:bg-muted/70 transition-colors"
+              >
+                Inspect Privacy Covenant
+              </Link>
             </div>
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-2xl transform rotate-3"></div>
-              <div className="relative bg-background rounded-2xl shadow-xl overflow-hidden">
-                <img src="https://images.unsplash.com/photo-1623276527153-fa38c1616b05?q=80&w=2069&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="PDFlyer in action" className="w-full h-auto" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-16 md:py-24 bg-primary/5">
-        <div className="container px-4 md:px-6 text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-6">
-            Ready to Transform Your PDF Experience?
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-            Join thousands of users who have simplified their document workflows with PDFlyer.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="text-lg px-8" asChild>
-              <Link href="/tools">Get Started Now</Link>
-            </Button>
-            <Button size="lg" variant="outline" className="text-lg" asChild>
-              <Link href="/about">Learn More</Link>
-            </Button>
           </div>
         </div>
       </section>

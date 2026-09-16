@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileOutput, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -15,6 +14,7 @@ export default function PdfCompressor() {
   const [isComplete, setIsComplete] = useState(false)
   const [originalSize, setOriginalSize] = useState<number>(0)
   const [compressedSize, setCompressedSize] = useState<number>(0)
+  const [lastCompressedLevel, setLastCompressedLevel] = useState<number>(70)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -31,7 +31,6 @@ export default function PdfCompressor() {
     setError(null)
     setIsComplete(false)
 
-    // Clean up previous download URL
     if (downloadUrl) {
       URL.revokeObjectURL(downloadUrl)
       setDownloadUrl(null)
@@ -47,9 +46,21 @@ export default function PdfCompressor() {
     }
   }
 
+  const resetFile = () => {
+    if (downloadUrl) {
+      URL.revokeObjectURL(downloadUrl)
+      setDownloadUrl(null)
+    }
+    setFile(null)
+    setOriginalSize(0)
+    setCompressedSize(0)
+    setIsComplete(false)
+    setError(null)
+  }
+
   const compressPdf = async () => {
     if (!file) {
-      setError("Please upload a PDF file first.")
+      setError("Please deposit a PDF manuscript first.")
       return
     }
 
@@ -57,19 +68,22 @@ export default function PdfCompressor() {
     setError(null)
 
     try {
-      // Perform the actual PDF compression
+      // Always compress starting from the pristine original file, never from a previously compressed output
       const compressedPdfBytes = await compressPDF(file, compressionLevel)
-
-      // Convert to blob and create download URL
       const pdfBlob = uint8ArrayToBlob(compressedPdfBytes)
+
+      if (downloadUrl) {
+        URL.revokeObjectURL(downloadUrl)
+      }
       const url = createDownloadURL(pdfBlob)
 
       setDownloadUrl(url)
       setCompressedSize(pdfBlob.size)
+      setLastCompressedLevel(compressionLevel)
       setIsComplete(true)
     } catch (err) {
       console.error("Error compressing PDF:", err)
-      setError(err instanceof Error ? err.message : "An error occurred while compressing the PDF")
+      setError(err instanceof Error ? err.message : "An error occurred while compressing the manuscript.")
     } finally {
       setIsProcessing(false)
     }
@@ -77,8 +91,8 @@ export default function PdfCompressor() {
 
   const downloadCompressedPdf = () => {
     if (downloadUrl && file) {
-      const filename = file.name.replace(".pdf", "_compressed.pdf")
-      downloadFile(downloadUrl, filename)
+      const sanitizedName = file.name.replace(/\.[^/.]+$/, "")
+      downloadFile(downloadUrl, `${sanitizedName}_level${lastCompressedLevel}.pdf`)
     }
   }
 
@@ -91,125 +105,139 @@ export default function PdfCompressor() {
   }
 
   const getCompressionQualityLabel = () => {
-    if (compressionLevel >= 90) return "Highest Quality (Minimal Compression)"
-    if (compressionLevel >= 70) return "High Quality"
-    if (compressionLevel >= 40) return "Medium Quality"
-    if (compressionLevel >= 20) return "Low Quality"
-    return "Lowest Quality (Maximum Compression)"
+    if (compressionLevel >= 80) return "Highest Fidelity (Light Refinement)"
+    if (compressionLevel >= 60) return "Balanced Archival Compression"
+    if (compressionLevel >= 40) return "Moderate Weight Reduction"
+    if (compressionLevel >= 20) return "Aggressive Stream Compaction"
+    return "Maximum Compaction"
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Compress PDF</h2>
-        <p className="text-muted-foreground">Reduce the file size of your PDF while maintaining quality.</p>
+        <div className="editorial-tag text-muted-foreground mb-1">Instrument III · Weight Optimization</div>
+        <h2 className="text-xl md:text-2xl font-serif font-medium text-foreground">Volume Compressor</h2>
+        <p className="text-xs md:text-sm text-muted-foreground font-sans mt-1">
+          Diminish manuscript file weight. The original uncompressed source remains loaded so you can test multiple compression levels iteratively.
+        </p>
       </div>
 
-      <PdfUploader onFilesSelected={handleFileSelected} multiple={false} />
+      {!file && <PdfUploader onFilesSelected={handleFileSelected} multiple={false} />}
+
+      {file && (
+        <div className="p-4 bg-muted/40 border border-border rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-serif font-medium text-foreground">{file.name}</div>
+            <div className="text-[0.7rem] text-muted-foreground font-mono">
+              Original Weight: {formatFileSize(originalSize)} · Pristine source file preserved in state
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={resetFile}
+            className="text-xs font-sans uppercase tracking-wider py-1 px-2.5 border border-border bg-background hover:bg-muted rounded-sm transition-colors text-foreground self-start sm:self-auto"
+          >
+            Deposit Different File
+          </button>
+        </div>
+      )}
 
       {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="rounded-sm">
+          <AlertDescription className="text-xs">{error}</AlertDescription>
         </Alert>
       )}
 
       {file && (
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-medium mb-2">Compression Level</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Adjust the slider to set your preferred balance between file size and quality.
-            </p>
+        <div className="space-y-6 pt-2">
+          {/* Slider Controls — Always visible and active */}
+          <div className="p-5 border border-border bg-card rounded-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs uppercase tracking-wider font-sans text-muted-foreground font-medium">
+                Compression Profile
+              </span>
+              <span className="text-xs font-mono font-medium text-foreground">{compressionLevel}%</span>
+            </div>
 
-            <div className="space-y-6">
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm">Maximum Compression</span>
-                  <span className="text-sm">Highest Quality</span>
-                </div>
-                <Slider
-                  value={[compressionLevel]}
-                  onValueChange={(value) => setCompressionLevel(value[0])}
-                  min={10}
-                  max={100}
-                  step={10}
-                  disabled={isProcessing}
-                />
+            <div className="space-y-2">
+              <Slider
+                value={[compressionLevel]}
+                onValueChange={(val) => {
+                  setCompressionLevel(val[0])
+                }}
+                min={10}
+                max={100}
+                step={10}
+                disabled={isProcessing}
+                className="py-2"
+              />
+              <div className="flex justify-between text-[0.7rem] text-muted-foreground font-sans">
+                <span>Maximum Compaction (10%)</span>
+                <span>Subtle Refinement (100%)</span>
               </div>
+            </div>
 
-              <div className="bg-muted p-4 rounded-md">
-                <div className="flex justify-between mb-2">
-                  <span className="font-medium">Quality Setting:</span>
-                  <span>{getCompressionQualityLabel()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Original Size:</span>
-                  <span>{formatFileSize(originalSize)}</span>
-                </div>
-                {isComplete && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="font-medium">Compressed Size:</span>
-                      <span>{formatFileSize(compressedSize)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium">Reduction:</span>
-                      <span>{Math.round((1 - compressedSize / originalSize) * 100)}%</span>
-                    </div>
-                  </>
-                )}
-              </div>
+            <div className="pt-2 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground font-sans">
+              <span>Selected Profile:</span>
+              <span className="font-medium text-foreground">{getCompressionQualityLabel()}</span>
             </div>
           </div>
 
-          {isComplete ? (
-            <div className="mt-6">
-              <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900 mb-4">
-                <AlertDescription className="text-green-800 dark:text-green-300 flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Your PDF has been successfully compressed!
-                </AlertDescription>
-              </Alert>
+          {/* Results Summary Box */}
+          {isComplete && (
+            <div className="p-4 bg-muted/50 border border-foreground/20 rounded-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-serif font-medium text-foreground">
+                  ✓ Compression Complete (Target Level: {lastCompressedLevel}%)
+                </div>
+                <span className="text-[0.7rem] font-mono text-muted-foreground">Original source ready for re-run</span>
+              </div>
 
-              <Button className="w-full" onClick={downloadCompressedPdf}>
-                <FileOutput className="mr-2 h-4 w-4" />
-                Download Compressed PDF
-              </Button>
+              <div className="grid grid-cols-3 gap-2 text-xs font-mono py-1">
+                <div className="p-2 border border-border bg-background rounded-sm">
+                  <div className="text-[0.65rem] text-muted-foreground font-sans uppercase">Original</div>
+                  <div className="font-semibold text-foreground">{formatFileSize(originalSize)}</div>
+                </div>
+                <div className="p-2 border border-border bg-background rounded-sm">
+                  <div className="text-[0.65rem] text-muted-foreground font-sans uppercase">Result</div>
+                  <div className="font-semibold text-foreground">{formatFileSize(compressedSize)}</div>
+                </div>
+                <div className="p-2 border border-border bg-background rounded-sm">
+                  <div className="text-[0.65rem] text-muted-foreground font-sans uppercase">Reduction</div>
+                  <div className="font-semibold text-foreground">
+                    {originalSize > 0
+                      ? `${Math.max(0, Math.round((1 - compressedSize / originalSize) * 100))}%`
+                      : "0%"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <Button
+                  onClick={downloadCompressedPdf}
+                  className="px-6 py-2 bg-foreground text-background text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90"
+                >
+                  Download Compressed PDF
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Adjust slider above and click &ldquo;Recompress from Original&rdquo; to test another setting.
+                </span>
+              </div>
             </div>
-          ) : (
-            <Button className="w-full" onClick={compressPdf} disabled={isProcessing}>
-              {isProcessing ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                "Compress PDF"
-              )}
-            </Button>
           )}
+
+          {/* Primary Action Button */}
+          <Button
+            onClick={compressPdf}
+            disabled={isProcessing}
+            className="w-full py-2.5 bg-foreground text-background text-xs uppercase tracking-wider font-semibold rounded-sm hover:opacity-90 transition-opacity"
+          >
+            {isProcessing
+              ? "Compressing Volume..."
+              : isComplete
+              ? "Recompress from Original Source (New Setting)"
+              : "Execute Volume Compression"}
+          </Button>
         </div>
       )}
     </div>
