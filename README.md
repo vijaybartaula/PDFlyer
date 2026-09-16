@@ -141,7 +141,15 @@ tailwind.config.ts      Tailwind theme tokens
 
 All tool routes follow the pattern `/tools/[tool-name]` and are handled by Next.js App Router. No hardcoded production URLs are used; the same paths resolve correctly on localhost and on the deployed domain.
 
-Deployed at: [https://pdflyer.vercel.app](https://pdflyer.vercel.app)
+Deployed at: [https://pdflyer.netlify.app](https://pdflyer.netlify.app)
+
+---
+
+## Deploying
+
+The project is configured for Netlify. `netlify.toml` runs `npm run build`, pins Node.js 22 (Next.js 16 requires 20.9 or later) and enables the official `@netlify/plugin-nextjs`, so no extra dashboard settings are needed.
+
+Set `NEXT_PUBLIC_APP_URL` to your production origin so the canonical URLs rendered in the interface match your domain. It falls back to `https://pdflyer.netlify.app`.
 
 ---
 
@@ -153,7 +161,7 @@ Files are processed entirely in the browser using client-side JavaScript. No fil
 
 ## Links
 
-- [Live Site](https://pdflyer.vercel.app)
+- [Live Site](https://pdflyer.netlify.app)
 - [Contact](https://bijaybartaula.com.np/#contact)
 
 ---
