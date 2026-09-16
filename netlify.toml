@@ -1,0 +1,12 @@
+# Netlify build configuration for the Next.js application.
+# The official plugin handles App Router output, static assets and caching.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # Next.js 16 requires Node.js >= 20.9; pin the LTS line used to develop and build.
+  NODE_VERSION = "22"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

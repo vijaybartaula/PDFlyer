@@ -1,7 +1,7 @@
 export const PRODUCTION_APP_URL: string =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_URL
     ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
-    : "") || "https://pdflyer.vercel.app"
+    : "") || "https://pdflyer.netlify.app"
 
 export interface ToolDefinition {
   id: string

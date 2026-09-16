@@ -25,3 +25,6 @@ next-env.d.ts
 
 # local scratch files (personal dev helpers, not part of the app)
 /scratch/
+
+# netlify
+/.netlify/
